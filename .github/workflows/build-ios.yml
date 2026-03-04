@@ -18,11 +18,20 @@ jobs:
           node-version: 20
           cache: 'npm'
 
+      - name: Select Xcode 16
+        run: |
+          ls /Applications/ | grep Xcode
+          sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer || \
+          sudo xcode-select -s /Applications/Xcode_16.1.app/Contents/Developer || \
+          sudo xcode-select -s /Applications/Xcode_16.0.app/Contents/Developer || \
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app | head -1)/Contents/Developer"
+          xcodebuild -version
+
       - name: Install dependencies
         run: npm ci
 
       - name: Generate native iOS project (expo prebuild)
-        run: npx expo prebuild --platform ios --clean
+        run: npx expo prebuild --platform ios --clean --no-install
 
       - name: Install CocoaPods dependencies
         working-directory: ios
