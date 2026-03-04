@@ -65,10 +65,8 @@ jobs:
         run: |
           sudo xcodebuild -runFirstLaunch || true
 
-          if ! xcrun --sdk iphoneos --show-sdk-path >/dev/null 2>&1; then
-            echo "iPhoneOS SDK missing, downloading platform..."
-            sudo xcodebuild -downloadPlatform iOS
-          fi
+          echo "Ensuring iOS platform components are installed..."
+          sudo xcodebuild -downloadPlatform iOS || true
 
           echo "=== iOS SDK path ==="
           xcrun --sdk iphoneos --show-sdk-path
@@ -138,26 +136,46 @@ jobs:
           SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list 2>/dev/null | grep -A 100 "Schemes:" | tail -n +2 | head -1 | xargs)
           echo "Workspace: $WORKSPACE | Scheme: $SCHEME"
 
-          set -o pipefail
-          xcodebuild \
-            -workspace "$WORKSPACE" \
-            -scheme "$SCHEME" \
-            -configuration Release \
-            -sdk iphoneos \
-            -derivedDataPath build \
-            -jobs $(sysctl -n hw.ncpu) \
-            ARCHS=arm64 \
-            ONLY_ACTIVE_ARCH=NO \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES \
-            CODE_SIGN_ENTITLEMENTS="" \
-            DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
-            SWIFT_TREAT_WARNINGS_AS_ERRORS=NO \
-            COMPILER_INDEX_STORE_ENABLE=NO \
-            2>&1 | tee ../build.log
+          build_once() {
+            set -o pipefail
+            xcodebuild \
+              -workspace "$WORKSPACE" \
+              -scheme "$SCHEME" \
+              -configuration Release \
+              -sdk iphoneos \
+              -destination 'generic/platform=iOS' \
+              -derivedDataPath build \
+              -jobs $(sysctl -n hw.ncpu) \
+              ARCHS=arm64 \
+              ONLY_ACTIVE_ARCH=NO \
+              CODE_SIGN_IDENTITY="-" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=NO \
+              AD_HOC_CODE_SIGNING_ALLOWED=YES \
+              CODE_SIGN_ENTITLEMENTS="" \
+              DEVELOPMENT_TEAM="" \
+              PROVISIONING_PROFILE_SPECIFIER="" \
+              SWIFT_TREAT_WARNINGS_AS_ERRORS=NO \
+              COMPILER_INDEX_STORE_ENABLE=NO
+          }
+
+          set +e
+          build_once 2>&1 | tee ../build.log
+          BUILD_EXIT=${PIPESTATUS[0]}
+          set -e
+
+          if [ "$BUILD_EXIT" -ne 0 ] && grep -qE "Unable to find a destination|Found no destinations|Platform Not Installed|is not installed" ../build.log; then
+            echo "Destination/platform issue detected. Downloading iOS platform and retrying once..."
+            sudo xcodebuild -downloadPlatform iOS || true
+            xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -showdestinations || true
+
+            set +e
+            build_once 2>&1 | tee -a ../build.log
+            BUILD_EXIT=${PIPESTATUS[0]}
+            set -e
+          fi
+
+          exit $BUILD_EXIT
 
       - name: Upload build log (on failure)
         if: failure()
