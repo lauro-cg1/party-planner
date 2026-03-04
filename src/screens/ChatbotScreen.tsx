@@ -85,6 +85,20 @@ export default function ChatbotScreen() {
     ]);
   };
 
+  const formatBold = (text: string, baseStyle: object) => {
+    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return (
+          <Text key={index} style={[baseStyle, { fontWeight: '700' }]}>
+            {part.slice(2, -2)}
+          </Text>
+        );
+      }
+      return <Text key={index}>{part}</Text>;
+    });
+  };
+
   const renderMessage = ({ item }: { item: ChatMessage }) => {
     const isUser = item.role === 'user';
     return (
@@ -111,7 +125,12 @@ export default function ChatbotScreen() {
               isUser ? styles.userText : styles.assistantText,
             ]}
           >
-            {item.content}
+            {isUser
+              ? item.content
+              : formatBold(
+                  item.content,
+                  styles.assistantText
+                )}
           </Text>
         </View>
       </View>
