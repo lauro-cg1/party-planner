@@ -5,7 +5,7 @@ on:
 
 jobs:
   build-ios:
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 60
 
     steps:
@@ -32,8 +32,8 @@ jobs:
         working-directory: ios
         run: |
           xcodebuild \
-            -workspace partyplanner.xcworkspace \
-            -scheme partyplanner \
+            -workspace ArraidosFofuras.xcworkspace \
+            -scheme ArraidosFofuras \
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath build \
@@ -47,7 +47,7 @@ jobs:
       - name: Create IPA from .app
         run: |
           mkdir -p Payload
-          cp -r ios/build/Build/Products/Release-iphoneos/partyplanner.app Payload/
+          cp -r ios/build/Build/Products/Release-iphoneos/ArraidosFofuras.app Payload/
           zip -r PartyPlanner.ipa Payload
           rm -rf Payload
 
