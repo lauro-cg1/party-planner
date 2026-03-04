@@ -78,18 +78,19 @@ jobs:
           # Also patch the main app project
           APP_PROJ=$(find . -name "*.xcodeproj" -not -path "*/Pods/*" | head -1)
           if [ -n "$APP_PROJ" ]; then
-            ruby - "$APP_PROJ" <<'RUBY'
-            require 'xcodeproj'
-            project = Xcodeproj::Project.open(ARGV[0])
+            ruby -e '
+            require "xcodeproj"
+            proj_path = ARGV[0]
+            project = Xcodeproj::Project.open(proj_path)
             project.targets.each do |target|
               target.build_configurations.each do |config|
-                config.build_settings['SWIFT_VERSION'] = '6'
-                config.build_settings['SWIFT_STRICT_CONCURRENCY'] = 'minimal'
+                config.build_settings["SWIFT_VERSION"] = "6"
+                config.build_settings["SWIFT_STRICT_CONCURRENCY"] = "minimal"
               end
             end
             project.save
-            puts "Patched #{project.targets.count} app targets in #{ARGV[0]}"
-            RUBY
+            puts "Patched #{project.targets.count} app targets in #{proj_path}"
+            ' "$APP_PROJ"
           fi
 
           # Verify patch was applied
