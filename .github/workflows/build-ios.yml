@@ -18,25 +18,48 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      # CRITICAL: Pin to Xcode 16.1 or 16.2 (Swift 6.0.x)
-      # Expo SDK 55 is NOT compatible with Xcode 16.4+ (Swift 6.1)
-      - name: Select Xcode 16.1
+      # Select a Xcode that actually has iPhoneOS SDK installed on the runner.
+      - name: Select compatible Xcode for Expo SDK 55
         run: |
           echo "=== Available Xcode versions ==="
           ls /Applications/ | grep Xcode
-          if [ -d "/Applications/Xcode_16.1.app" ]; then
-            sudo xcode-select -s /Applications/Xcode_16.1.app/Contents/Developer
-          elif [ -d "/Applications/Xcode_16.2.app" ]; then
-            sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
-          elif [ -d "/Applications/Xcode_16.0.app" ]; then
-            sudo xcode-select -s /Applications/Xcode_16.0.app/Contents/Developer
-          else
-            echo "ERROR: No Xcode 16.0-16.2 found!"
+
+          CANDIDATES=(
+            "/Applications/Xcode_16.2.app"
+            "/Applications/Xcode_16.1.app"
+            "/Applications/Xcode_16.4.app"
+            "/Applications/Xcode_16.3.app"
+          )
+
+          while IFS= read -r x; do
+            CANDIDATES+=("$x")
+          done < <(ls -d /Applications/Xcode_16.*.app 2>/dev/null | sort -V)
+
+          DEFAULT_XCODE=$(xcode-select -p | sed 's|/Contents/Developer||')
+          CANDIDATES+=("$DEFAULT_XCODE")
+
+          XCODE_PATH=""
+          for candidate in "${CANDIDATES[@]}"; do
+            [ -d "$candidate" ] || continue
+            echo "Trying: $candidate"
+            sudo xcode-select -s "$candidate/Contents/Developer"
+            if xcodebuild -showsdks | grep -q "iphoneos"; then
+              XCODE_PATH="$candidate"
+              break
+            fi
+            echo "Skipping $candidate (iphoneos SDK not installed)"
+          done
+
+          if [ -z "$XCODE_PATH" ]; then
+            echo "ERROR: No Xcode with iPhoneOS SDK found on this runner"
             exit 1
           fi
-          echo "=== Selected ==="
+
+          echo "=== Selected Xcode ==="
+          echo "$XCODE_PATH"
           xcodebuild -version
           swift --version
+          xcodebuild -showsdks
 
       - name: Install dependencies
         run: npm ci
@@ -44,80 +67,39 @@ jobs:
       - name: Generate native iOS project
         run: npx expo prebuild --platform ios --clean --no-install
 
-      # Patch the Podfile BEFORE pod install so CocoaPods
-      # generates correct settings from the start
-      - name: Patch Podfile for Swift 6 compatibility
+      - name: Patch Podfile for Swift concurrency compatibility
         working-directory: ios
         run: |
           ruby <<'RUBY_SCRIPT'
-          podfile = File.read("Podfile")
+          podfile_path = "Podfile"
+          podfile = File.read(podfile_path)
 
           patch = <<~'PATCH'
 
-              # === SWIFT 6 COMPATIBILITY (injected by CI) ===
               installer.pods_project.targets.each do |target|
                 target.build_configurations.each do |config|
-                  config.build_settings['SWIFT_VERSION'] = '6'
                   config.build_settings['SWIFT_STRICT_CONCURRENCY'] = 'minimal'
-                  # Also inject compiler flag directly for maximum reliability
                   flags = config.build_settings['OTHER_SWIFT_FLAGS'] || '$(inherited)'
-                  unless flags.include?('-strict-concurrency')
+                  unless flags.include?('-strict-concurrency=minimal')
                     config.build_settings['OTHER_SWIFT_FLAGS'] = "#{flags} -strict-concurrency=minimal"
                   end
                 end
               end
-              # === END SWIFT 6 PATCH ===
           PATCH
 
           if podfile.include?("post_install do |installer|")
-            # Inject right after the post_install opening line
             podfile.sub!("post_install do |installer|", "post_install do |installer|\n#{patch}")
-            File.write("Podfile", podfile)
-            puts "SUCCESS: Injected Swift 6 patch into existing post_install block"
           else
-            # Create a new post_install block
             podfile += "\npost_install do |installer|\n#{patch}\nend\n"
-            File.write("Podfile", podfile)
-            puts "SUCCESS: Added new post_install block with Swift 6 patch"
           end
-          RUBY_SCRIPT
 
-          echo "=== Podfile post_install section ==="
-          grep -A 25 "post_install" Podfile | head -35
+          File.write(podfile_path, podfile)
+          puts "Patched Podfile for minimal strict concurrency"
+          RUBY_SCRIPT
 
       - name: Install CocoaPods
         working-directory: ios
         run: pod install
-
-      # Verify the patches were applied by CocoaPods post_install
-      - name: Verify Swift build settings
-        working-directory: ios
-        run: |
-          echo "=== ExpoModulesCore xcconfig ==="
-          find Pods/Target\ Support\ Files -path "*ExpoModulesCore*" -name "*.xcconfig" | while read f; do
-            echo "--- $f ---"
-            grep -iE "SWIFT_VERSION|SWIFT_STRICT|OTHER_SWIFT" "$f" || echo "(no Swift settings)"
-          done
-
-          echo ""
-          echo "=== Unique SWIFT_VERSION in all xcconfigs ==="
-          grep -rh "SWIFT_VERSION" Pods/Target\ Support\ Files/ 2>/dev/null | sort -u
-
-          echo ""
-          echo "=== ExpoModulesCore target settings in Pods.xcodeproj ==="
-          ruby -e '
-          require "xcodeproj"
-          project = Xcodeproj::Project.open("Pods/Pods.xcodeproj")
-          target = project.targets.find { |t| t.name == "ExpoModulesCore" }
-          if target
-            target.build_configurations.each do |config|
-              puts "#{config.name}: SWIFT_VERSION=#{config.build_settings["SWIFT_VERSION"]} STRICT_CONCURRENCY=#{config.build_settings["SWIFT_STRICT_CONCURRENCY"]}"
-            end
-          else
-            puts "ExpoModulesCore target not found"
-            puts "Available targets: #{project.targets.map(&:name).join(", ")}"
-          end
-          '
 
       - name: Build unsigned .app
         working-directory: ios
