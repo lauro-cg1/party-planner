@@ -79,13 +79,13 @@ jobs:
           echo "App size: $(du -sh "$APP_PATH" | cut -f1)"
           mkdir -p Payload
           cp -r "$APP_PATH" Payload/
-          zip -r PartyPlanner.ipa Payload
-          echo "IPA size: $(du -sh PartyPlanner.ipa | cut -f1)"
+          zip -r ArraiaDosFofuras.ipa Payload
+          echo "IPA size: $(du -sh ArraiaDosFofuras.ipa | cut -f1)"
           rm -rf Payload
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PartyPlanner-IPA
-          path: PartyPlanner.ipa
+          name: ArraiaDosFofuras-IPA
+          path: ArraiaDosFofuras.ipa
           retention-days: 30
