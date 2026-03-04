@@ -73,7 +73,10 @@ jobs:
             DEVELOPMENT_TEAM="" \
             PROVISIONING_PROFILE_SPECIFIER="" \
             SWIFT_TREAT_WARNINGS_AS_ERRORS=NO \
+            SWIFT_VERSION=5.0 \
+            SWIFT_STRICT_CONCURRENCY=minimal \
             COMPILER_INDEX_STORE_ENABLE=NO \
+            OTHER_SWIFT_FLAGS='$(inherited) -Xfrontend -disable-upcoming-feature -Xfrontend StrictConcurrency' \
             2>&1 | tee ../build.log
 
       - name: Upload build log (on failure)
