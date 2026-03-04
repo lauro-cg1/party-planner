@@ -144,7 +144,6 @@ jobs:
             -scheme "$SCHEME" \
             -configuration Release \
             -sdk iphoneos \
-            -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             -jobs $(sysctl -n hw.ncpu) \
             ARCHS=arm64 \
