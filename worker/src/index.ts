@@ -166,6 +166,15 @@ export default {
         if (method === 'DELETE') return handleDeleteShopping(env.DB, id);
       }
 
+      // --- CONFIG ---
+      const configMatch = path.match(/^\/api\/config\/([\w-]+)$/);
+      if (configMatch && method === 'GET') {
+        const key = configMatch[1];
+        const row = await env.DB.prepare('SELECT value FROM config WHERE key = ?').bind(key).first<{ value: string }>();
+        if (!row) return errorResponse('Configuração não encontrada', 404);
+        return jsonResponse({ value: row.value });
+      }
+
       // --- HEALTH CHECK ---
       if (path === '/' || path === '/health') {
         return jsonResponse({

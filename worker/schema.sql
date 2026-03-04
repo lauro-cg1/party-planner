@@ -10,6 +10,12 @@ CREATE TABLE IF NOT EXISTS guests (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Tabela de Configurações (chaves de API, etc)
+CREATE TABLE IF NOT EXISTS config (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
 -- Tabela de Compras e Contratações
 CREATE TABLE IF NOT EXISTS shopping_items (
   id TEXT PRIMARY KEY,
