@@ -17,7 +17,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { ChatMessage } from '../types';
 import { sendMessage, resetChat } from '../services/gemini';
-import { v4 as uuidv4 } from 'uuid';
+
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+}
 
 export default function ChatbotScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -38,7 +41,7 @@ export default function ChatbotScreen() {
     if (!trimmed || isLoading) return;
 
     const userMessage: ChatMessage = {
-      id: uuidv4(),
+      id: generateId(),
       role: 'user',
       content: trimmed,
       timestamp: new Date().toISOString(),
@@ -51,7 +54,7 @@ export default function ChatbotScreen() {
     try {
       const response = await sendMessage(trimmed);
       const assistantMessage: ChatMessage = {
-        id: uuidv4(),
+        id: generateId(),
         role: 'assistant',
         content: response,
         timestamp: new Date().toISOString(),
@@ -59,7 +62,7 @@ export default function ChatbotScreen() {
       setMessages((prev) => [...prev, assistantMessage]);
     } catch {
       const errorMessage: ChatMessage = {
-        id: uuidv4(),
+        id: generateId(),
         role: 'assistant',
         content: 'Desculpe, ocorreu um erro. Tente novamente.',
         timestamp: new Date().toISOString(),
