@@ -37,12 +37,25 @@ jobs:
         working-directory: ios
         run: pod install
 
+      - name: List iOS project structure
+        run: |
+          echo "=== iOS directory ==="
+          ls -la ios/
+          echo "=== Workspace files ==="
+          find ios -name "*.xcworkspace" -maxdepth 1
+          echo "=== Schemes ==="
+          find ios -path "*/xcschemes/*.xcscheme" | head -10
+
       - name: Build unsigned .app
         working-directory: ios
         run: |
+          WORKSPACE=$(find . -name "*.xcworkspace" -maxdepth 1 | head -1)
+          SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list 2>/dev/null | grep -A 100 "Schemes:" | tail -n +2 | head -1 | xargs)
+          echo "Using workspace: $WORKSPACE"
+          echo "Using scheme: $SCHEME"
           xcodebuild \
-            -workspace ArraidosFofuras.xcworkspace \
-            -scheme ArraidosFofuras \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath build \
@@ -50,14 +63,24 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM="" \
-            -allowProvisioningUpdates \
-            | tail -20
+            -allowProvisioningUpdates
 
       - name: Create IPA from .app
         run: |
+          echo "=== Build output ==="
+          find ios/build -name "*.app" -type d
+          APP_PATH=$(find ios/build -name "*.app" -type d | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "ERROR: No .app found in build output!"
+            find ios/build -type d | head -30
+            exit 1
+          fi
+          echo "Found app at: $APP_PATH"
+          echo "App size: $(du -sh "$APP_PATH" | cut -f1)"
           mkdir -p Payload
-          cp -r ios/build/Build/Products/Release-iphoneos/ArraidosFofuras.app Payload/
+          cp -r "$APP_PATH" Payload/
           zip -r PartyPlanner.ipa Payload
+          echo "IPA size: $(du -sh PartyPlanner.ipa | cut -f1)"
           rm -rf Payload
 
       - name: Upload IPA artifact
