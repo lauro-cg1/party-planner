@@ -61,6 +61,20 @@ jobs:
           swift --version
           xcodebuild -showsdks
 
+      - name: Prepare Xcode iOS platform tools
+        run: |
+          sudo xcodebuild -runFirstLaunch || true
+
+          if ! xcrun --sdk iphoneos --show-sdk-path >/dev/null 2>&1; then
+            echo "iPhoneOS SDK missing, downloading platform..."
+            sudo xcodebuild -downloadPlatform iOS
+          fi
+
+          echo "=== iOS SDK path ==="
+          xcrun --sdk iphoneos --show-sdk-path
+          echo "=== ibtool version ==="
+          xcrun --sdk iphoneos ibtool --version
+
       - name: Install dependencies
         run: npm ci
 
