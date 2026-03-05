@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { Guest, ShoppingItem } from '../types';
 import { fetchGuests, fetchShoppingItems } from '../services/api';
 
@@ -45,6 +46,13 @@ export default function FinancesScreen() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Reload when screen gains focus (tab switch)
+  useFocusEffect(
+    useCallback(() => {
+      loadData(true);
+    }, [loadData])
+  );
 
   // Auto-refresh every 20 seconds
   useEffect(() => {

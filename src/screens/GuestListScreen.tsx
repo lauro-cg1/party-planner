@@ -118,6 +118,7 @@ export default function GuestListScreen() {
     } else {
       Alert.alert('Erro', 'Não foi possível adicionar o convidado');
     }
+    versionRef.current++;
   };
 
   const handleStatusChange = async (guest: Guest, status: GuestStatus) => {
@@ -143,6 +144,7 @@ export default function GuestListScreen() {
         prev.map((g) => (g.id === guest.id ? { ...g, status } : g))
       );
     }
+    versionRef.current++;
   };
 
   const handlePaymentSubmit = async () => {
@@ -190,6 +192,7 @@ export default function GuestListScreen() {
         };
       })
     );
+    versionRef.current++;
     setPaymentModalVisible(false);
   };
 
@@ -209,6 +212,7 @@ export default function GuestListScreen() {
               setSelectedGuest(null);
             }
           }
+          versionRef.current++;
         },
       },
     ]);
@@ -231,6 +235,7 @@ export default function GuestListScreen() {
       setSelectedGuest((prev) => prev ? { ...prev, observations: obsText } : prev);
       Alert.alert('Sucesso', 'Observações salvas!');
     }
+    versionRef.current++;
   };
 
   const handleDeletePayment = async (paymentId: string) => {
@@ -258,6 +263,7 @@ export default function GuestListScreen() {
       setGuests((prev) =>
         prev.map((g) => (g.id === selectedGuest.id ? updatedGuest : g))
       );
+      versionRef.current++;
     }
   };
 

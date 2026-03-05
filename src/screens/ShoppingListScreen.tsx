@@ -56,8 +56,8 @@ export default function ShoppingListScreen() {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [dueDateText, setDueDateText] = useState('');
 
-  // Payment modal
-  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  // Payment form (inline in detail modal)
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [payAmount, setPayAmount] = useState('');
   const [payDate, setPayDate] = useState('');
 
@@ -106,8 +106,7 @@ export default function ShoppingListScreen() {
       setNewPrice('');
     } else {
       Alert.alert('Erro', 'Não foi possível adicionar o item');
-    }
-  };
+    }    versionRef.current++;  };
 
   const handleDelete = (id: string, name: string) => {
     Alert.alert('Remover Item', `Deseja remover "${name}"?`, [
@@ -125,6 +124,7 @@ export default function ShoppingListScreen() {
               setSelectedItem(null);
             }
           }
+          versionRef.current++;
         },
       },
     ]);
@@ -133,6 +133,7 @@ export default function ShoppingListScreen() {
   const handleOpenDetail = (item: ShoppingItem) => {
     setSelectedItem(item);
     setDueDateText(item.dueDate ? formatDate(item.dueDate) : '');
+    setShowPaymentForm(false);
     setDetailModalVisible(true);
   };
 
@@ -156,6 +157,7 @@ export default function ShoppingListScreen() {
       setItems((prev) => prev.map((i) => (i.id === selectedItem.id ? updated : i)));
       Alert.alert('Sucesso', 'Data limite salva!');
     }
+    versionRef.current++;
   };
 
   const handlePaymentSubmit = async () => {
@@ -188,9 +190,10 @@ export default function ShoppingListScreen() {
     };
     setSelectedItem(updatedItem);
     setItems((prev) => prev.map((i) => (i.id === selectedItem.id ? updatedItem : i)));
-    setPaymentModalVisible(false);
+    setShowPaymentForm(false);
     setPayAmount('');
     setPayDate('');
+    versionRef.current++;
   };
 
   const handleDeletePayment = async (paymentId: string) => {
@@ -203,6 +206,7 @@ export default function ShoppingListScreen() {
       const updatedItem = { ...selectedItem, payments: updatedPayments, totalPaid: newTotalPaid };
       setSelectedItem(updatedItem);
       setItems((prev) => prev.map((i) => (i.id === selectedItem.id ? updatedItem : i)));
+      versionRef.current++;
     }
   };
 
@@ -433,71 +437,64 @@ export default function ShoppingListScreen() {
                     onPress={() => {
                       setPayAmount('');
                       setPayDate('');
-                      setPaymentModalVisible(true);
+                      setShowPaymentForm(true);
                     }}
                   >
                     <Ionicons name="add-circle" size={22} color="#FFF" />
                     <Text style={styles.addPaymentBtnText}>Registrar Pagamento</Text>
                   </TouchableOpacity>
+
+                  {/* Inline Payment Form */}
+                  {showPaymentForm && (
+                    <View style={styles.inlinePaymentForm}>
+                      <Text style={styles.sectionLabel}>Novo Pagamento</Text>
+                      <Text style={styles.modalSubtitle}>
+                        Faltam: {formatCurrency(Math.max(0, selectedItem.price - (selectedItem.totalPaid || 0)))}
+                      </Text>
+                      <Text style={styles.fieldLabel}>Valor (R$)</Text>
+                      <TextInput
+                        style={styles.modalInput}
+                        placeholder="Ex: 1000,00"
+                        placeholderTextColor="#A1887F"
+                        value={payAmount}
+                        onChangeText={setPayAmount}
+                        keyboardType="decimal-pad"
+                      />
+                      <Text style={styles.fieldLabel}>Data do Pagamento (DD/MM/AAAA)</Text>
+                      <TextInput
+                        style={styles.modalInput}
+                        placeholder="Ex: 15/03/2026"
+                        placeholderTextColor="#A1887F"
+                        value={payDate}
+                        onChangeText={setPayDate}
+                        keyboardType="default"
+                      />
+                      <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                        <TouchableOpacity
+                          style={[styles.submitBtn, { flex: 1, backgroundColor: '#999' }]}
+                          onPress={() => setShowPaymentForm(false)}
+                        >
+                          <Text style={styles.submitBtnText}>Cancelar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.submitBtn, { flex: 1 }]}
+                          onPress={handlePaymentSubmit}
+                        >
+                          <Ionicons name="checkmark" size={22} color="#FFF" />
+                          <Text style={styles.submitBtnText}>Confirmar</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
                 </>
               )}
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
-
-      {/* ============ PAYMENT MODAL ============ */}
-      <Modal
-        visible={paymentModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setPaymentModalVisible(false)}
-      >
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Registrar Pagamento</Text>
-              <TouchableOpacity onPress={() => setPaymentModalVisible(false)}>
-                <Ionicons name="close" size={28} color="#5D4037" />
-              </TouchableOpacity>
-            </View>
-
-            {selectedItem && (
-              <Text style={styles.modalSubtitle}>
-                {selectedItem.name} — Faltam: {formatCurrency(Math.max(0, selectedItem.price - (selectedItem.totalPaid || 0)))}
-              </Text>
-            )}
-
-            <Text style={styles.fieldLabel}>Valor (R$)</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Ex: 1000,00"
-              placeholderTextColor="#A1887F"
-              value={payAmount}
-              onChangeText={setPayAmount}
-              keyboardType="decimal-pad"
-            />
-
-            <Text style={styles.fieldLabel}>Data do Pagamento (DD/MM/AAAA)</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Ex: 15/03/2026"
-              placeholderTextColor="#A1887F"
-              value={payDate}
-              onChangeText={setPayDate}
-              keyboardType="default"
-            />
-
-            <TouchableOpacity style={styles.submitBtn} onPress={handlePaymentSubmit}>
-              <Ionicons name="checkmark" size={24} color="#FFF" />
-              <Text style={styles.submitBtnText}>Confirmar Pagamento</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+    </KeyboardAvoidingView>
+  );
+}
     </KeyboardAvoidingView>
   );
 }
@@ -791,5 +788,13 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  inlinePaymentForm: {
+    backgroundColor: '#FAF3E0',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#E8E0D8',
   },
 });
