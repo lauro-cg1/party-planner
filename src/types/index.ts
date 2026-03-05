@@ -2,12 +2,24 @@
 // TIPOS DO PLANEJADOR DE FESTA
 // ==========================================
 
-export type GuestStatus = 'confirmado' | 'nao_vem' | 'pago' | 'pendente';
+export type GuestStatus = 'confirmado' | 'nao_vem' | 'pago_parcial' | 'pago_total' | 'pendente';
+
+export interface GuestPayment {
+  id: string;
+  guestId: string;
+  amount: number;
+  paymentDate: string;
+  createdAt: string;
+}
 
 export interface Guest {
   id: string;
   name: string;
+  family: string;
   status: GuestStatus;
+  observations: string;
+  totalPaid: number;
+  payments: GuestPayment[];
   createdAt: string;
 }
 

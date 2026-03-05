@@ -1,69 +1,77 @@
 // ==========================================
-// TELA - GASTOS E RECEBIMENTOS
+// TELA - GASTOS E RECEBIMENTOS (REDESIGNED)
 // ==========================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   FlatList,
   StyleSheet,
   ActivityIndicator,
-  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Guest, ShoppingItem } from '../types';
 import { fetchGuests, fetchShoppingItems } from '../services/api';
 
 const PRICE_PER_GUEST = 150;
+const REFRESH_INTERVAL = 20000;
+
+function formatCurrency(value: number) {
+  return `R$ ${value.toFixed(2).replace('.', ',')}`;
+}
 
 export default function FinancesScreen() {
   const [guests, setGuests] = useState<Guest[]>([]);
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (silent = false) => {
     const [guestsData, itemsData] = await Promise.all([
       fetchGuests(),
       fetchShoppingItems(),
     ]);
     setGuests(guestsData);
     setItems(itemsData);
-    setLoading(false);
-    setRefreshing(false);
+    if (!silent) setLoading(false);
   }, []);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  const paidGuests = guests.filter((g) => g.status === 'pago');
+  // Auto-refresh every 20 seconds
+  useEffect(() => {
+    intervalRef.current = setInterval(() => {
+      loadData(true);
+    }, REFRESH_INTERVAL);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [loadData]);
+
+  const paidGuests = guests.filter((g) => g.status === 'pago_total' || g.status === 'pago_parcial');
   const totalExpenses = items.reduce((sum, item) => sum + item.price, 0);
-  const totalReceived = paidGuests.length * PRICE_PER_GUEST;
+  const totalReceived = guests.reduce((sum, g) => sum + (g.totalPaid || 0), 0);
   const netBalance = totalReceived - totalExpenses;
 
-  const formatCurrency = (value: number) =>
-    `R$ ${value.toFixed(2).replace('.', ',')}`;
-
   type ListEntry =
-    | { type: 'header'; title: string }
+    | { type: 'header'; title: string; icon: string; color: string }
     | { type: 'expense'; item: ShoppingItem }
     | { type: 'receipt'; guest: Guest }
     | { type: 'empty'; message: string };
 
   const listData: ListEntry[] = [];
 
-  // Seção de Gastos
-  listData.push({ type: 'header', title: 'Gastos (Lista de Compras)' });
+  listData.push({ type: 'header', title: 'Gastos (Compras e Contratações)', icon: 'trending-down', color: '#C62828' });
   if (items.length === 0) {
     listData.push({ type: 'empty', message: 'Nenhum gasto registrado' });
   } else {
     items.forEach((item) => listData.push({ type: 'expense', item }));
   }
 
-  // Seção de Recebimentos
-  listData.push({ type: 'header', title: 'Recebimentos (Convidados Pagos)' });
+  listData.push({ type: 'header', title: 'Recebimentos (Pagamentos)', icon: 'trending-up', color: '#2E7D32' });
   if (paidGuests.length === 0) {
     listData.push({ type: 'empty', message: 'Nenhum pagamento recebido' });
   } else {
@@ -75,21 +83,27 @@ export default function FinancesScreen() {
       case 'header':
         return (
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{item.title}</Text>
+            <Ionicons name={item.icon as any} size={22} color={item.color} />
+            <Text style={[styles.sectionTitle, { color: item.color }]}>{item.title}</Text>
           </View>
         );
       case 'expense':
         return (
           <View style={styles.entryCard}>
-            <View style={styles.entryIcon}>
+            <View style={[styles.entryIcon, { backgroundColor: '#FFEBEE' }]}>
               <Ionicons
                 name={item.item.category === 'compra' ? 'cart' : 'briefcase'}
-                size={18}
-                color="#EF5350"
+                size={20}
+                color="#C62828"
               />
             </View>
-            <Text style={styles.entryName}>{item.item.name}</Text>
-            <Text style={[styles.entryAmount, { color: '#EF5350' }]}>
+            <View style={styles.entryInfo}>
+              <Text style={styles.entryName}>{item.item.name}</Text>
+              <Text style={styles.entryCategory}>
+                {item.item.category === 'compra' ? 'Compra' : 'Contratação'}
+              </Text>
+            </View>
+            <Text style={[styles.entryAmount, { color: '#C62828' }]}>
               - {formatCurrency(item.item.price)}
             </Text>
           </View>
@@ -98,17 +112,23 @@ export default function FinancesScreen() {
         return (
           <View style={styles.entryCard}>
             <View style={[styles.entryIcon, { backgroundColor: '#E8F5E9' }]}>
-              <Ionicons name="person" size={18} color="#66BB6A" />
+              <Ionicons name="person" size={20} color="#2E7D32" />
             </View>
-            <Text style={styles.entryName}>{item.guest.name}</Text>
-            <Text style={[styles.entryAmount, { color: '#66BB6A' }]}>
-              + {formatCurrency(PRICE_PER_GUEST)}
+            <View style={styles.entryInfo}>
+              <Text style={styles.entryName}>{item.guest.name}</Text>
+              <Text style={styles.entryCategory}>
+                {item.guest.status === 'pago_total' ? 'Pago totalmente' : `Parcial`}
+              </Text>
+            </View>
+            <Text style={[styles.entryAmount, { color: '#2E7D32' }]}>
+              + {formatCurrency(item.guest.totalPaid || 0)}
             </Text>
           </View>
         );
       case 'empty':
         return (
           <View style={styles.emptyRow}>
+            <Ionicons name="document-text-outline" size={24} color="#D7CCC8" />
             <Text style={styles.emptyText}>{item.message}</Text>
           </View>
         );
@@ -120,46 +140,53 @@ export default function FinancesScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#E65100" />
+        <ActivityIndicator size="large" color="#5D4037" />
+        <Text style={styles.loadingText}>Carregando...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Cards de resumo */}
+      {/* Summary Cards */}
       <View style={styles.summaryContainer}>
         <View style={[styles.bigCard, { backgroundColor: '#FFEBEE' }]}>
-          <Ionicons name="trending-down" size={28} color="#EF5350" />
+          <View style={styles.bigCardIcon}>
+            <Ionicons name="trending-down" size={28} color="#C62828" />
+          </View>
           <Text style={styles.bigCardLabel}>Total de Gastos</Text>
-          <Text style={[styles.bigCardValue, { color: '#EF5350' }]}>
+          <Text style={[styles.bigCardValue, { color: '#C62828' }]}>
             {formatCurrency(totalExpenses)}
           </Text>
         </View>
         <View style={[styles.bigCard, { backgroundColor: '#E8F5E9' }]}>
-          <Ionicons name="trending-up" size={28} color="#66BB6A" />
+          <View style={styles.bigCardIcon}>
+            <Ionicons name="trending-up" size={28} color="#2E7D32" />
+          </View>
           <Text style={styles.bigCardLabel}>Total Recebido</Text>
-          <Text style={[styles.bigCardValue, { color: '#66BB6A' }]}>
+          <Text style={[styles.bigCardValue, { color: '#2E7D32' }]}>
             {formatCurrency(totalReceived)}
           </Text>
           <Text style={styles.bigCardSubLabel}>
-            {paidGuests.length} convidado{paidGuests.length !== 1 ? 's' : ''} × {formatCurrency(PRICE_PER_GUEST)}
+            {paidGuests.length} convidado{paidGuests.length !== 1 ? 's' : ''} pagaram
           </Text>
         </View>
       </View>
 
-      {/* Saldo Líquido */}
+      {/* Net Balance */}
       <View
         style={[
           styles.balanceCard,
           { backgroundColor: netBalance >= 0 ? '#E8F5E9' : '#FFEBEE' },
         ]}
       >
-        <Ionicons
-          name={netBalance >= 0 ? 'wallet' : 'warning'}
-          size={24}
-          color={netBalance >= 0 ? '#2E7D32' : '#C62828'}
-        />
+        <View style={[styles.balanceIcon, { backgroundColor: netBalance >= 0 ? '#C8E6C9' : '#FFCDD2' }]}>
+          <Ionicons
+            name={netBalance >= 0 ? 'wallet' : 'warning'}
+            size={28}
+            color={netBalance >= 0 ? '#2E7D32' : '#C62828'}
+          />
+        </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.balanceLabel}>Saldo Líquido</Text>
           <Text
@@ -173,77 +200,116 @@ export default function FinancesScreen() {
         </View>
       </View>
 
-      {/* Detalhamento */}
+      {/* List */}
       <FlatList
         data={listData}
         keyExtractor={(_, idx) => idx.toString()}
         renderItem={renderItem}
         contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} />
-        }
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFA' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  container: { flex: 1, backgroundColor: '#FAF3E0' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FAF3E0' },
+  loadingText: { marginTop: 12, fontSize: 18, color: '#5D4037' },
+
   summaryContainer: {
     flexDirection: 'row',
     paddingHorizontal: 12,
-    paddingTop: 12,
-    gap: 8,
+    paddingTop: 14,
+    gap: 10,
   },
   bigCard: {
     flex: 1,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 18,
+    padding: 18,
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
-  bigCardLabel: { fontSize: 12, color: '#666' },
-  bigCardValue: { fontSize: 22, fontWeight: '800' },
-  bigCardSubLabel: { fontSize: 10, color: '#999', marginTop: 2 },
+  bigCardIcon: {
+    marginBottom: 4,
+  },
+  bigCardLabel: { fontSize: 14, color: '#5D4037', fontWeight: '600' },
+  bigCardValue: { fontSize: 24, fontWeight: '800' },
+  bigCardSubLabel: { fontSize: 13, color: '#8D6E63', marginTop: 2 },
+
   balanceCard: {
     flexDirection: 'row',
     alignItems: 'center',
     marginHorizontal: 12,
     marginTop: 12,
+    borderRadius: 18,
+    padding: 18,
+    gap: 14,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  balanceIcon: {
+    width: 52,
+    height: 52,
     borderRadius: 16,
-    padding: 16,
-    gap: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  balanceLabel: { fontSize: 13, color: '#666' },
-  balanceValue: { fontSize: 24, fontWeight: '800' },
+  balanceLabel: { fontSize: 15, color: '#5D4037', fontWeight: '600' },
+  balanceValue: { fontSize: 28, fontWeight: '800' },
+
   sectionHeader: {
-    paddingTop: 16,
-    paddingBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 20,
+    paddingBottom: 10,
   },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#333' },
+  sectionTitle: { fontSize: 18, fontWeight: '800' },
+
   entryCard: {
     backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 6,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#F0F0F0',
+    borderColor: '#E8E0D8',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   entryIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#FFEBEE',
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: 12,
   },
-  entryName: { flex: 1, fontSize: 14, fontWeight: '500', color: '#333' },
-  entryAmount: { fontSize: 14, fontWeight: '700' },
-  emptyRow: { paddingVertical: 12, alignItems: 'center' },
-  emptyText: { fontSize: 14, color: '#999' },
-  list: { paddingHorizontal: 12, paddingBottom: 20 },
+  entryInfo: { flex: 1 },
+  entryName: { fontSize: 17, fontWeight: '700', color: '#3E2723' },
+  entryCategory: { fontSize: 14, color: '#8D6E63', marginTop: 2 },
+  entryAmount: { fontSize: 17, fontWeight: '800' },
+
+  emptyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    gap: 8,
+  },
+  emptyText: { fontSize: 16, color: '#A1887F' },
+
+  list: { paddingHorizontal: 12, paddingBottom: 30 },
 });

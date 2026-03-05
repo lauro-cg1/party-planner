@@ -1,20 +1,15 @@
 // ==========================================
 // CLOUDFLARE WORKER - API DO PLANEJADOR DE FESTA
 // ==========================================
-// Este Worker serve como backend para o app,
-// usando Cloudflare D1 como banco de dados.
-// ==========================================
 
 export interface Env {
   DB: D1Database;
 }
 
-// Gera UUID simples
 function generateId(): string {
   return crypto.randomUUID();
 }
 
-// Cabeçalhos CORS
 function corsHeaders(): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': '*',
@@ -36,55 +31,136 @@ function errorResponse(message: string, status = 400): Response {
 }
 
 // ==========================================
-// ROTAS
+// CONVIDADOS
 // ==========================================
 
 async function handleGetGuests(db: D1Database): Promise<Response> {
-  const result = await db
-    .prepare('SELECT id, name, status, created_at as createdAt FROM guests ORDER BY created_at ASC')
+  const guests = await db
+    .prepare('SELECT id, name, family, status, observations, created_at as createdAt FROM guests ORDER BY family ASC, name ASC')
     .all();
-  return jsonResponse({ guests: result.results });
+
+  const payments = await db
+    .prepare('SELECT id, guest_id as guestId, amount, payment_date as paymentDate, created_at as createdAt FROM guest_payments ORDER BY payment_date ASC')
+    .all();
+
+  const paymentsByGuest: Record<string, any[]> = {};
+  for (const p of (payments.results || [])) {
+    const gid = (p as any).guestId;
+    if (!paymentsByGuest[gid]) paymentsByGuest[gid] = [];
+    paymentsByGuest[gid].push(p);
+  }
+
+  const enrichedGuests = (guests.results || []).map((g: any) => {
+    const guestPayments = paymentsByGuest[g.id] || [];
+    const totalPaid = guestPayments.reduce((sum: number, p: any) => sum + p.amount, 0);
+    return { ...g, payments: guestPayments, totalPaid };
+  });
+
+  return jsonResponse({ guests: enrichedGuests });
 }
 
 async function handleAddGuest(db: D1Database, request: Request): Promise<Response> {
-  const body = await request.json() as { name?: string };
+  const body = await request.json() as { name?: string; family?: string };
   const name = body.name?.trim();
+  const family = body.family?.trim() || '';
   if (!name) return errorResponse('Nome é obrigatório');
 
   const id = generateId();
   const now = new Date().toISOString();
 
   await db
-    .prepare('INSERT INTO guests (id, name, status, created_at) VALUES (?, ?, ?, ?)')
-    .bind(id, name, 'pendente', now)
+    .prepare('INSERT INTO guests (id, name, family, status, observations, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .bind(id, name, family, 'pendente', '', now)
     .run();
 
   return jsonResponse({
-    guest: { id, name, status: 'pendente', createdAt: now },
+    guest: { id, name, family, status: 'pendente', observations: '', totalPaid: 0, payments: [], createdAt: now },
   }, 201);
 }
 
 async function handleUpdateGuest(db: D1Database, id: string, request: Request): Promise<Response> {
-  const body = await request.json() as { status?: string };
-  const status = body.status;
+  const body = await request.json() as { status?: string; observations?: string; family?: string };
 
-  const validStatuses = ['pendente', 'confirmado', 'nao_vem', 'pago'];
-  if (!status || !validStatuses.includes(status)) {
-    return errorResponse('Status inválido');
+  const updates: string[] = [];
+  const values: any[] = [];
+
+  if (body.status !== undefined) {
+    const validStatuses = ['pendente', 'confirmado', 'nao_vem', 'pago_parcial', 'pago_total'];
+    if (!validStatuses.includes(body.status)) {
+      return errorResponse('Status inválido');
+    }
+    updates.push('status = ?');
+    values.push(body.status);
   }
 
+  if (body.observations !== undefined) {
+    updates.push('observations = ?');
+    values.push(body.observations);
+  }
+
+  if (body.family !== undefined) {
+    updates.push('family = ?');
+    values.push(body.family.trim());
+  }
+
+  if (updates.length === 0) return errorResponse('Nenhum campo para atualizar');
+
+  values.push(id);
   await db
-    .prepare('UPDATE guests SET status = ? WHERE id = ?')
-    .bind(status, id)
+    .prepare(`UPDATE guests SET ${updates.join(', ')} WHERE id = ?`)
+    .bind(...values)
     .run();
 
   return jsonResponse({ success: true });
 }
 
 async function handleDeleteGuest(db: D1Database, id: string): Promise<Response> {
+  await db.prepare('DELETE FROM guest_payments WHERE guest_id = ?').bind(id).run();
   await db.prepare('DELETE FROM guests WHERE id = ?').bind(id).run();
   return jsonResponse({ success: true });
 }
+
+// ==========================================
+// PAGAMENTOS
+// ==========================================
+
+async function handleAddPayment(db: D1Database, guestId: string, request: Request): Promise<Response> {
+  const body = await request.json() as { amount?: number; paymentDate?: string };
+  const amount = body.amount;
+  const paymentDate = body.paymentDate?.trim();
+
+  if (typeof amount !== 'number' || amount <= 0) return errorResponse('Valor inválido');
+  if (!paymentDate) return errorResponse('Data é obrigatória');
+
+  const id = generateId();
+  const now = new Date().toISOString();
+
+  await db
+    .prepare('INSERT INTO guest_payments (id, guest_id, amount, payment_date, created_at) VALUES (?, ?, ?, ?, ?)')
+    .bind(id, guestId, amount, paymentDate, now)
+    .run();
+
+  return jsonResponse({
+    payment: { id, guestId, amount, paymentDate, createdAt: now },
+  }, 201);
+}
+
+async function handleDeletePayment(db: D1Database, paymentId: string): Promise<Response> {
+  await db.prepare('DELETE FROM guest_payments WHERE id = ?').bind(paymentId).run();
+  return jsonResponse({ success: true });
+}
+
+async function handleGetGuestPayments(db: D1Database, guestId: string): Promise<Response> {
+  const result = await db
+    .prepare('SELECT id, guest_id as guestId, amount, payment_date as paymentDate, created_at as createdAt FROM guest_payments WHERE guest_id = ? ORDER BY payment_date ASC')
+    .bind(guestId)
+    .all();
+  return jsonResponse({ payments: result.results || [] });
+}
+
+// ==========================================
+// COMPRAS
+// ==========================================
 
 async function handleGetShopping(db: D1Database): Promise<Response> {
   const result = await db
@@ -129,7 +205,6 @@ async function handleDeleteShopping(db: D1Database, id: string): Promise<Respons
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    // Tratar CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders() });
     }
@@ -146,7 +221,21 @@ export default {
       if (path === '/api/guests' && method === 'POST') {
         return handleAddGuest(env.DB, request);
       }
-      const guestMatch = path.match(/^\/api\/guests\/(.+)$/);
+
+      // --- PAGAMENTOS ---
+      const paymentMatch = path.match(/^\/api\/guests\/([^/]+)\/payments$/);
+      if (paymentMatch) {
+        const guestId = paymentMatch[1];
+        if (method === 'GET') return handleGetGuestPayments(env.DB, guestId);
+        if (method === 'POST') return handleAddPayment(env.DB, guestId, request);
+      }
+
+      const deletePaymentMatch = path.match(/^\/api\/payments\/([^/]+)$/);
+      if (deletePaymentMatch && method === 'DELETE') {
+        return handleDeletePayment(env.DB, deletePaymentMatch[1]);
+      }
+
+      const guestMatch = path.match(/^\/api\/guests\/([^/]+)$/);
       if (guestMatch) {
         const id = guestMatch[1];
         if (method === 'PUT') return handleUpdateGuest(env.DB, id, request);
@@ -160,7 +249,7 @@ export default {
       if (path === '/api/shopping' && method === 'POST') {
         return handleAddShopping(env.DB, request);
       }
-      const shoppingMatch = path.match(/^\/api\/shopping\/(.+)$/);
+      const shoppingMatch = path.match(/^\/api\/shopping\/([^/]+)$/);
       if (shoppingMatch) {
         const id = shoppingMatch[1];
         if (method === 'DELETE') return handleDeleteShopping(env.DB, id);

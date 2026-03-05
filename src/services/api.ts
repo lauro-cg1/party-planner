@@ -2,9 +2,8 @@
 // SERVIÇO DE API - CLOUDFLARE WORKERS
 // ==========================================
 
-import { Guest, GuestStatus, ShoppingItem } from '../types';
+import { Guest, GuestStatus, GuestPayment, ShoppingItem } from '../types';
 
-// URL base da API Cloudflare Worker
 const API_BASE_URL = 'https://party-planner-api.laurocg2.workers.dev';
 
 // ==========================================
@@ -23,12 +22,12 @@ export async function fetchGuests(): Promise<Guest[]> {
   }
 }
 
-export async function addGuest(name: string): Promise<Guest | null> {
+export async function addGuest(name: string, family: string): Promise<Guest | null> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/guests`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, family }),
     });
     if (!response.ok) throw new Error('Erro ao adicionar convidado');
     const data = await response.json();
@@ -39,16 +38,16 @@ export async function addGuest(name: string): Promise<Guest | null> {
   }
 }
 
-export async function updateGuestStatus(id: string, status: GuestStatus): Promise<boolean> {
+export async function updateGuest(id: string, updates: { status?: GuestStatus; observations?: string; family?: string }): Promise<boolean> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/guests/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(updates),
     });
     return response.ok;
   } catch (error) {
-    console.error('updateGuestStatus error:', error);
+    console.error('updateGuest error:', error);
     return false;
   }
 }
@@ -61,6 +60,38 @@ export async function deleteGuest(id: string): Promise<boolean> {
     return response.ok;
   } catch (error) {
     console.error('deleteGuest error:', error);
+    return false;
+  }
+}
+
+// ==========================================
+// PAGAMENTOS
+// ==========================================
+
+export async function addPayment(guestId: string, amount: number, paymentDate: string): Promise<GuestPayment | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/guests/${guestId}/payments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount, paymentDate }),
+    });
+    if (!response.ok) throw new Error('Erro ao adicionar pagamento');
+    const data = await response.json();
+    return data.payment;
+  } catch (error) {
+    console.error('addPayment error:', error);
+    return null;
+  }
+}
+
+export async function deletePayment(paymentId: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/payments/${paymentId}`, {
+      method: 'DELETE',
+    });
+    return response.ok;
+  } catch (error) {
+    console.error('deletePayment error:', error);
     return false;
   }
 }

@@ -25,29 +25,36 @@ export default function App() {
           screenOptions={{
             headerStyle: {
               backgroundColor: '#FFF',
-              elevation: 0,
-              shadowOpacity: 0,
-              borderBottomWidth: 1,
-              borderBottomColor: '#F0F0F0',
+              elevation: 3,
+              shadowOpacity: 0.1,
+              shadowOffset: { width: 0, height: 2 },
+              shadowRadius: 4,
+              borderBottomWidth: 0,
             },
             headerTitleStyle: {
-              fontSize: 18,
-              fontWeight: '700',
-              color: '#333',
+              fontSize: 20,
+              fontWeight: '800',
+              color: '#3E2723',
             },
-            tabBarActiveTintColor: '#E65100',
-            tabBarInactiveTintColor: '#999',
+            tabBarActiveTintColor: '#5D4037',
+            tabBarInactiveTintColor: '#A1887F',
             tabBarStyle: {
               backgroundColor: '#FFF',
-              borderTopWidth: 1,
-              borderTopColor: '#F0F0F0',
-              paddingBottom: 8,
-              paddingTop: 6,
-              height: 60,
+              borderTopWidth: 0,
+              elevation: 8,
+              shadowOpacity: 0.15,
+              shadowOffset: { width: 0, height: -2 },
+              shadowRadius: 8,
+              paddingBottom: 10,
+              paddingTop: 8,
+              height: 72,
             },
             tabBarLabelStyle: {
-              fontSize: 11,
-              fontWeight: '600',
+              fontSize: 13,
+              fontWeight: '700',
+            },
+            tabBarIconStyle: {
+              marginBottom: -2,
             },
           }}
         >
@@ -56,9 +63,9 @@ export default function App() {
             component={GuestListScreen}
             options={{
               title: 'Convidados',
-              headerTitle: '🎉 Lista de Convidados',
+              headerTitle: 'Lista de Convidados',
               tabBarIcon: ({ color, size }) => (
-                <Ionicons name="people" size={size} color={color} />
+                <Ionicons name="people" size={size + 2} color={color} />
               ),
             }}
           />
@@ -67,9 +74,9 @@ export default function App() {
             component={ShoppingListScreen}
             options={{
               title: 'Compras',
-              headerTitle: '🛒 Compras e Contratações',
+              headerTitle: 'Compras e Contratações',
               tabBarIcon: ({ color, size }) => (
-                <Ionicons name="cart" size={size} color={color} />
+                <Ionicons name="cart" size={size + 2} color={color} />
               ),
             }}
           />
@@ -78,9 +85,9 @@ export default function App() {
             component={FinancesScreen}
             options={{
               title: 'Finanças',
-              headerTitle: '💰 Gastos e Recebimentos',
+              headerTitle: 'Gastos e Recebimentos',
               tabBarIcon: ({ color, size }) => (
-                <Ionicons name="wallet" size={size} color={color} />
+                <Ionicons name="wallet" size={size + 2} color={color} />
               ),
             }}
           />
@@ -89,9 +96,9 @@ export default function App() {
             component={ChatbotScreen}
             options={{
               title: 'Assistente',
-              headerTitle: '🤖 Assistente IA',
+              headerTitle: 'Assistente IA',
               tabBarIcon: ({ color, size }) => (
-                <Ionicons name="chatbubbles" size={size} color={color} />
+                <Ionicons name="chatbubbles" size={size + 2} color={color} />
               ),
             }}
           />

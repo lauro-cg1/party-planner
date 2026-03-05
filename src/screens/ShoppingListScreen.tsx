@@ -1,8 +1,8 @@
 // ==========================================
-// TELA - LISTA DE COMPRAS E CONTRATAÇÕES
+// TELA - LISTA DE COMPRAS E CONTRATAÇÕES (REDESIGNED)
 // ==========================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,6 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-  RefreshControl,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -20,34 +19,49 @@ import { Ionicons } from '@expo/vector-icons';
 import { ShoppingItem } from '../types';
 import { fetchShoppingItems, addShoppingItem, deleteShoppingItem } from '../services/api';
 
+const REFRESH_INTERVAL = 20000;
+
+function formatCurrency(value: number) {
+  return `R$ ${value.toFixed(2).replace('.', ',')}`;
+}
+
 export default function ShoppingListScreen() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [newName, setNewName] = useState('');
   const [newPrice, setNewPrice] = useState('');
   const [category, setCategory] = useState<'compra' | 'contratacao'>('compra');
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const loadItems = useCallback(async () => {
+  const loadItems = useCallback(async (silent = false) => {
     const data = await fetchShoppingItems();
     setItems(data);
-    setLoading(false);
-    setRefreshing(false);
+    if (!silent) setLoading(false);
   }, []);
 
   useEffect(() => {
     loadItems();
   }, [loadItems]);
 
+  // Auto-refresh every 20 seconds
+  useEffect(() => {
+    intervalRef.current = setInterval(() => {
+      loadItems(true);
+    }, REFRESH_INTERVAL);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [loadItems]);
+
   const handleAdd = async () => {
     const trimmed = newName.trim();
     const price = parseFloat(newPrice.replace(',', '.'));
     if (!trimmed) {
-      Alert.alert('Erro', 'Digite o nome do item');
+      Alert.alert('Atenção', 'Digite o nome do item');
       return;
     }
     if (isNaN(price) || price <= 0) {
-      Alert.alert('Erro', 'Digite um preço válido');
+      Alert.alert('Atenção', 'Digite um preço válido');
       return;
     }
     const item = await addShoppingItem(trimmed, price, category);
@@ -82,35 +96,37 @@ export default function ShoppingListScreen() {
   const totalContratacoes = contratacoes.reduce((s, i) => s + i.price, 0);
   const total = totalCompras + totalContratacoes;
 
-  const formatCurrency = (value: number) =>
-    `R$ ${value.toFixed(2).replace('.', ',')}`;
-
-  const renderItem = ({ item }: { item: ShoppingItem }) => (
-    <View style={styles.itemCard}>
-      <View style={styles.itemInfo}>
-        <View style={styles.itemHeader}>
+  const renderItem = ({ item }: { item: ShoppingItem }) => {
+    const isCompra = item.category === 'compra';
+    return (
+      <View style={styles.itemCard}>
+        <View style={[styles.itemIcon, { backgroundColor: isCompra ? '#FFF3E0' : '#F3E5F5' }]}>
           <Ionicons
-            name={item.category === 'compra' ? 'cart-outline' : 'briefcase-outline'}
-            size={18}
-            color={item.category === 'compra' ? '#E65100' : '#6A1B9A'}
+            name={isCompra ? 'cart' : 'briefcase'}
+            size={22}
+            color={isCompra ? '#E65100' : '#6A1B9A'}
           />
+        </View>
+        <View style={styles.itemInfo}>
           <Text style={styles.itemName}>{item.name}</Text>
+          <Text style={styles.itemCategory}>{isCompra ? 'Compra' : 'Contratação'}</Text>
         </View>
         <Text style={styles.itemPrice}>{formatCurrency(item.price)}</Text>
+        <TouchableOpacity
+          style={styles.deleteBtn}
+          onPress={() => handleDelete(item.id, item.name)}
+        >
+          <Ionicons name="trash-outline" size={22} color="#EF5350" />
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity
-        style={styles.deleteBtn}
-        onPress={() => handleDelete(item.id, item.name)}
-      >
-        <Ionicons name="trash-outline" size={18} color="#EF5350" />
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#E65100" />
+        <ActivityIndicator size="large" color="#5D4037" />
+        <Text style={styles.loadingText}>Carregando...</Text>
       </View>
     );
   }
@@ -120,99 +136,83 @@ export default function ShoppingListScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {/* Resumo */}
+      {/* Summary */}
       <View style={styles.summaryRow}>
         <View style={[styles.summaryCard, { backgroundColor: '#FFF3E0' }]}>
-          <Text style={styles.summaryNumber}>{formatCurrency(totalCompras)}</Text>
+          <Ionicons name="cart" size={20} color="#E65100" />
+          <Text style={styles.summaryValue}>{formatCurrency(totalCompras)}</Text>
           <Text style={styles.summaryLabel}>Compras</Text>
         </View>
         <View style={[styles.summaryCard, { backgroundColor: '#F3E5F5' }]}>
-          <Text style={styles.summaryNumber}>{formatCurrency(totalContratacoes)}</Text>
+          <Ionicons name="briefcase" size={20} color="#6A1B9A" />
+          <Text style={styles.summaryValue}>{formatCurrency(totalContratacoes)}</Text>
           <Text style={styles.summaryLabel}>Contratações</Text>
         </View>
         <View style={[styles.summaryCard, { backgroundColor: '#FFEBEE' }]}>
-          <Text style={styles.summaryNumber}>{formatCurrency(total)}</Text>
+          <Ionicons name="calculator" size={20} color="#C62828" />
+          <Text style={styles.summaryValue}>{formatCurrency(total)}</Text>
           <Text style={styles.summaryLabel}>Total</Text>
         </View>
       </View>
 
-      {/* Filtro de Categoria */}
+      {/* Category Selector */}
       <View style={styles.categoryRow}>
         <TouchableOpacity
-          style={[
-            styles.categoryBtn,
-            category === 'compra' && styles.categoryBtnActive,
-          ]}
+          style={[styles.categoryBtn, category === 'compra' && styles.categoryBtnActiveOrange]}
           onPress={() => setCategory('compra')}
         >
-          <Ionicons name="cart-outline" size={16} color={category === 'compra' ? '#FFF' : '#E65100'} />
-          <Text
-            style={[
-              styles.categoryBtnText,
-              category === 'compra' && styles.categoryBtnTextActive,
-            ]}
-          >
+          <Ionicons name="cart-outline" size={20} color={category === 'compra' ? '#FFF' : '#E65100'} />
+          <Text style={[styles.categoryBtnText, category === 'compra' && styles.categoryBtnTextActive]}>
             Compra
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[
-            styles.categoryBtn,
-            category === 'contratacao' && styles.categoryBtnActivePurple,
-          ]}
+          style={[styles.categoryBtn, category === 'contratacao' && styles.categoryBtnActivePurple]}
           onPress={() => setCategory('contratacao')}
         >
-          <Ionicons
-            name="briefcase-outline"
-            size={16}
-            color={category === 'contratacao' ? '#FFF' : '#6A1B9A'}
-          />
-          <Text
-            style={[
-              styles.categoryBtnText,
-              category === 'contratacao' && styles.categoryBtnTextActive,
-            ]}
-          >
+          <Ionicons name="briefcase-outline" size={20} color={category === 'contratacao' ? '#FFF' : '#6A1B9A'} />
+          <Text style={[styles.categoryBtnText, category === 'contratacao' && styles.categoryBtnTextActive]}>
             Contratação
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* Input */}
-      <View style={styles.inputRow}>
-        <TextInput
-          style={[styles.input, { flex: 2 }]}
-          placeholder="Nome do item..."
-          placeholderTextColor="#999"
-          value={newName}
-          onChangeText={setNewName}
-        />
-        <TextInput
-          style={[styles.input, { flex: 1 }]}
-          placeholder="Preço"
-          placeholderTextColor="#999"
-          value={newPrice}
-          onChangeText={setNewPrice}
-          keyboardType="decimal-pad"
-        />
+      <View style={styles.inputSection}>
+        <View style={styles.inputRow}>
+          <TextInput
+            style={[styles.input, { flex: 2 }]}
+            placeholder="Nome do item..."
+            placeholderTextColor="#A1887F"
+            value={newName}
+            onChangeText={setNewName}
+          />
+          <TextInput
+            style={[styles.input, { flex: 1 }]}
+            placeholder="Preço"
+            placeholderTextColor="#A1887F"
+            value={newPrice}
+            onChangeText={setNewPrice}
+            keyboardType="decimal-pad"
+          />
+        </View>
         <TouchableOpacity style={styles.addButton} onPress={handleAdd}>
-          <Ionicons name="add" size={24} color="#FFF" />
+          <Ionicons name="add-circle" size={22} color="#FFF" />
+          <Text style={styles.addButtonText}>Adicionar Item</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Lista */}
+      {/* List */}
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadItems(); }} />
-        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="receipt-outline" size={64} color="#CCC" />
+            <Ionicons name="receipt-outline" size={80} color="#D7CCC8" />
             <Text style={styles.emptyText}>Nenhum item adicionado</Text>
+            <Text style={styles.emptySubText}>Adicione compras ou contratações acima</Text>
           </View>
         }
       />
@@ -221,41 +221,50 @@ export default function ShoppingListScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFA' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  container: { flex: 1, backgroundColor: '#FAF3E0' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FAF3E0' },
+  loadingText: { marginTop: 12, fontSize: 18, color: '#5D4037' },
+
   summaryRow: {
     flexDirection: 'row',
     paddingHorizontal: 12,
-    paddingTop: 12,
+    paddingTop: 14,
     gap: 8,
   },
   summaryCard: {
     flex: 1,
-    borderRadius: 12,
-    padding: 10,
+    borderRadius: 16,
+    padding: 14,
     alignItems: 'center',
+    gap: 4,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
-  summaryNumber: { fontSize: 14, fontWeight: '700', color: '#333' },
-  summaryLabel: { fontSize: 10, color: '#666', marginTop: 2 },
+  summaryValue: { fontSize: 17, fontWeight: '800', color: '#3E2723' },
+  summaryLabel: { fontSize: 13, color: '#5D4037', fontWeight: '600' },
+
   categoryRow: {
     flexDirection: 'row',
     paddingHorizontal: 12,
     paddingTop: 12,
-    gap: 8,
+    gap: 10,
   },
   categoryBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 12,
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
     backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderWidth: 1.5,
+    borderColor: '#D7CCC8',
   },
-  categoryBtnActive: {
+  categoryBtnActiveOrange: {
     backgroundColor: '#E65100',
     borderColor: '#E65100',
   },
@@ -263,46 +272,79 @@ const styles = StyleSheet.create({
     backgroundColor: '#6A1B9A',
     borderColor: '#6A1B9A',
   },
-  categoryBtnText: { fontSize: 14, fontWeight: '600', color: '#666' },
+  categoryBtnText: { fontSize: 16, fontWeight: '700', color: '#5D4037' },
   categoryBtnTextActive: { color: '#FFF' },
+
+  inputSection: {
+    paddingHorizontal: 12,
+    paddingTop: 12,
+  },
   inputRow: {
     flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
     gap: 8,
+    marginBottom: 8,
   },
   input: {
     backgroundColor: '#FFF',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 17,
+    borderWidth: 1.5,
+    borderColor: '#D7CCC8',
+    color: '#3E2723',
   },
   addButton: {
-    backgroundColor: '#E65100',
-    borderRadius: 12,
-    width: 48,
-    justifyContent: 'center',
+    backgroundColor: '#5D4037',
+    borderRadius: 14,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 8,
+    elevation: 3,
+    shadowColor: '#5D4037',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
-  list: { paddingHorizontal: 12, paddingBottom: 20 },
+  addButtonText: {
+    color: '#FFF',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+
+  list: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 30 },
   itemCard: {
     backgroundColor: '#FFF',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 14,
     marginBottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#F0F0F0',
+    borderColor: '#E8E0D8',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  itemIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   itemInfo: { flex: 1 },
-  itemHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  itemName: { fontSize: 15, fontWeight: '600', color: '#333' },
-  itemPrice: { fontSize: 14, color: '#666', marginLeft: 26 },
-  deleteBtn: { padding: 8 },
+  itemName: { fontSize: 17, fontWeight: '700', color: '#3E2723' },
+  itemCategory: { fontSize: 14, color: '#8D6E63', marginTop: 2 },
+  itemPrice: { fontSize: 17, fontWeight: '800', color: '#3E2723', marginRight: 8 },
+  deleteBtn: { padding: 10 },
+
   emptyContainer: { alignItems: 'center', paddingTop: 60 },
-  emptyText: { fontSize: 16, color: '#999', marginTop: 12 },
+  emptyText: { fontSize: 20, color: '#8D6E63', marginTop: 16, fontWeight: '700' },
+  emptySubText: { fontSize: 16, color: '#A1887F', marginTop: 4 },
 });

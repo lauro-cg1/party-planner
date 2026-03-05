@@ -1,5 +1,5 @@
 // ==========================================
-// TELA - CHATBOT GEMINI
+// TELA - CHATBOT GEMINI (REDESIGNED)
 // ==========================================
 
 import React, { useState, useRef } from 'react';
@@ -28,7 +28,7 @@ export default function ChatbotScreen() {
       id: 'welcome',
       role: 'assistant',
       content:
-        'Olá! 🎉 Sou sua assistente para a festa junina! Posso ajudar com sugestões de preços, locais para compras em Valinhos e Vinhedo, ideias para decoração e muito mais. Como posso te ajudar?',
+        'Olá! Sou sua assistente para a festa junina! Posso ajudar com sugestões de preços, locais para compras em Valinhos e Vinhedo, ideias para decoração e muito mais. Como posso te ajudar?',
       timestamp: new Date().toISOString(),
     },
   ]);
@@ -79,7 +79,7 @@ export default function ChatbotScreen() {
       {
         id: 'welcome-reset',
         role: 'assistant',
-        content: 'Conversa reiniciada! Como posso te ajudar com a festa junina? 🎉',
+        content: 'Conversa reiniciada! Como posso te ajudar com a festa junina?',
         timestamp: new Date().toISOString(),
       },
     ]);
@@ -110,7 +110,7 @@ export default function ChatbotScreen() {
       >
         {!isUser && (
           <View style={styles.avatarContainer}>
-            <Ionicons name="sparkles" size={16} color="#E65100" />
+            <Ionicons name="sparkles" size={18} color="#5D4037" />
           </View>
         )}
         <View
@@ -127,10 +127,7 @@ export default function ChatbotScreen() {
           >
             {isUser
               ? item.content
-              : formatBold(
-                  item.content,
-                  styles.assistantText
-                )}
+              : formatBold(item.content, styles.assistantText)}
           </Text>
         </View>
       </View>
@@ -143,19 +140,21 @@ export default function ChatbotScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={90}
     >
-      {/* Header com botão de reset */}
+      {/* Header */}
       <View style={styles.chatHeader}>
         <View style={styles.headerLeft}>
-          <Ionicons name="sparkles" size={20} color="#E65100" />
+          <View style={styles.headerIcon}>
+            <Ionicons name="sparkles" size={20} color="#5D4037" />
+          </View>
           <Text style={styles.headerTitle}>Assistente da Festa</Text>
         </View>
         <TouchableOpacity style={styles.resetBtn} onPress={handleReset}>
-          <Ionicons name="refresh" size={18} color="#E65100" />
+          <Ionicons name="refresh" size={20} color="#5D4037" />
           <Text style={styles.resetText}>Nova Conversa</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Mensagens */}
+      {/* Messages */}
       <FlatList
         ref={flatListRef}
         data={messages}
@@ -169,7 +168,7 @@ export default function ChatbotScreen() {
       {/* Loading */}
       {isLoading && (
         <View style={styles.typingIndicator}>
-          <ActivityIndicator size="small" color="#E65100" />
+          <ActivityIndicator size="small" color="#5D4037" />
           <Text style={styles.typingText}>Digitando...</Text>
         </View>
       )}
@@ -179,7 +178,7 @@ export default function ChatbotScreen() {
         <TextInput
           style={styles.input}
           placeholder="Pergunte sobre a festa..."
-          placeholderTextColor="#999"
+          placeholderTextColor="#A1887F"
           value={input}
           onChangeText={setInput}
           onSubmitEditing={handleSend}
@@ -191,7 +190,7 @@ export default function ChatbotScreen() {
           onPress={handleSend}
           disabled={!input.trim() || isLoading}
         >
-          <Ionicons name="send" size={20} color="#FFF" />
+          <Ionicons name="send" size={22} color="#FFF" />
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -199,98 +198,124 @@ export default function ChatbotScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFA' },
+  container: { flex: 1, backgroundColor: '#FAF3E0' },
+
   chatHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     backgroundColor: '#FFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: '#E8E0D8',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: '#333' },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#EFEBE9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: '#3E2723' },
   resetBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: '#FFF3E0',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#EFEBE9',
   },
-  resetText: { fontSize: 12, fontWeight: '600', color: '#E65100' },
-  messagesList: { padding: 12, paddingBottom: 8 },
+  resetText: { fontSize: 14, fontWeight: '700', color: '#5D4037' },
+
+  messagesList: { padding: 14, paddingBottom: 8 },
   messageBubble: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 14,
     alignItems: 'flex-start',
   },
   userBubble: { justifyContent: 'flex-end' },
   assistantBubble: { justifyContent: 'flex-start' },
   avatarContainer: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#FFF3E0',
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#EFEBE9',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8,
+    marginRight: 10,
     marginTop: 2,
   },
   messageContent: {
     maxWidth: '78%',
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: 18,
+    padding: 14,
   },
   userContent: {
-    backgroundColor: '#E65100',
+    backgroundColor: '#5D4037',
     borderBottomRightRadius: 4,
   },
   assistantContent: {
     backgroundColor: '#FFF',
     borderBottomLeftRadius: 4,
     borderWidth: 1,
-    borderColor: '#F0F0F0',
+    borderColor: '#E8E0D8',
+    elevation: 1,
   },
-  messageText: { fontSize: 15, lineHeight: 22 },
+  messageText: { fontSize: 17, lineHeight: 24 },
   userText: { color: '#FFF' },
-  assistantText: { color: '#333' },
+  assistantText: { color: '#3E2723' },
+
   typingIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    gap: 10,
   },
-  typingText: { fontSize: 13, color: '#999' },
+  typingText: { fontSize: 15, color: '#8D6E63', fontWeight: '600' },
+
   inputContainer: {
     flexDirection: 'row',
     padding: 12,
     backgroundColor: '#FFF',
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-    gap: 8,
+    borderTopColor: '#E8E0D8',
+    gap: 10,
     alignItems: 'flex-end',
   },
   input: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#FAF3E0',
     borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 15,
-    maxHeight: 100,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    fontSize: 17,
+    maxHeight: 120,
+    color: '#3E2723',
+    borderWidth: 1,
+    borderColor: '#D7CCC8',
   },
   sendButton: {
-    backgroundColor: '#E65100',
-    borderRadius: 20,
-    width: 42,
-    height: 42,
+    backgroundColor: '#5D4037',
+    borderRadius: 22,
+    width: 48,
+    height: 48,
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#5D4037',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
-  sendButtonDisabled: { opacity: 0.5 },
+  sendButtonDisabled: { opacity: 0.4 },
 });
