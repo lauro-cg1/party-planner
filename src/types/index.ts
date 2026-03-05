@@ -16,6 +16,7 @@ export interface Guest {
   id: string;
   name: string;
   family: string;
+  isChild: number;
   status: GuestStatus;
   observations: string;
   totalPaid: number;

@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS guests (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   family TEXT NOT NULL DEFAULT '',
+  is_child INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'pendente' CHECK(status IN ('pendente', 'confirmado', 'nao_vem', 'pago_parcial', 'pago_total')),
   observations TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL DEFAULT (datetime('now'))

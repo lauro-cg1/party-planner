@@ -36,7 +36,7 @@ function errorResponse(message: string, status = 400): Response {
 
 async function handleGetGuests(db: D1Database): Promise<Response> {
   const guests = await db
-    .prepare('SELECT id, name, family, status, observations, created_at as createdAt FROM guests ORDER BY family ASC, name ASC')
+    .prepare('SELECT id, name, family, is_child as isChild, status, observations, created_at as createdAt FROM guests ORDER BY family ASC, name ASC')
     .all();
 
   const payments = await db
@@ -60,26 +60,27 @@ async function handleGetGuests(db: D1Database): Promise<Response> {
 }
 
 async function handleAddGuest(db: D1Database, request: Request): Promise<Response> {
-  const body = await request.json() as { name?: string; family?: string };
+  const body = await request.json() as { name?: string; family?: string; isChild?: boolean };
   const name = body.name?.trim();
   const family = body.family?.trim() || '';
+  const isChild = body.isChild ? 1 : 0;
   if (!name) return errorResponse('Nome é obrigatório');
 
   const id = generateId();
   const now = new Date().toISOString();
 
   await db
-    .prepare('INSERT INTO guests (id, name, family, status, observations, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(id, name, family, 'pendente', '', now)
+    .prepare('INSERT INTO guests (id, name, family, is_child, status, observations, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind(id, name, family, isChild, 'pendente', '', now)
     .run();
 
   return jsonResponse({
-    guest: { id, name, family, status: 'pendente', observations: '', totalPaid: 0, payments: [], createdAt: now },
+    guest: { id, name, family, isChild, status: 'pendente', observations: '', totalPaid: 0, payments: [], createdAt: now },
   }, 201);
 }
 
 async function handleUpdateGuest(db: D1Database, id: string, request: Request): Promise<Response> {
-  const body = await request.json() as { status?: string; observations?: string; family?: string };
+  const body = await request.json() as { status?: string; observations?: string; family?: string; isChild?: boolean };
 
   const updates: string[] = [];
   const values: any[] = [];
@@ -101,6 +102,11 @@ async function handleUpdateGuest(db: D1Database, id: string, request: Request): 
   if (body.family !== undefined) {
     updates.push('family = ?');
     values.push(body.family.trim());
+  }
+
+  if (body.isChild !== undefined) {
+    updates.push('is_child = ?');
+    values.push(body.isChild ? 1 : 0);
   }
 
   if (updates.length === 0) return errorResponse('Nenhum campo para atualizar');

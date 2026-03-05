@@ -15,7 +15,12 @@ import { Guest, ShoppingItem } from '../types';
 import { fetchGuests, fetchShoppingItems } from '../services/api';
 
 const PRICE_PER_GUEST = 150;
+const PRICE_PER_CHILD = 75;
 const REFRESH_INTERVAL = 20000;
+
+function getGuestPrice(guest: Guest): number {
+  return guest.isChild ? PRICE_PER_CHILD : PRICE_PER_GUEST;
+}
 
 function formatCurrency(value: number) {
   return `R$ ${value.toFixed(2).replace('.', ',')}`;
@@ -115,7 +120,7 @@ export default function FinancesScreen() {
               <Ionicons name="person" size={20} color="#2E7D32" />
             </View>
             <View style={styles.entryInfo}>
-              <Text style={styles.entryName}>{item.guest.name}</Text>
+              <Text style={styles.entryName}>{item.guest.name}{item.guest.isChild ? ' (Criança)' : ''}</Text>
               <Text style={styles.entryCategory}>
                 {item.guest.status === 'pago_total' ? 'Pago totalmente' : `Parcial`}
               </Text>

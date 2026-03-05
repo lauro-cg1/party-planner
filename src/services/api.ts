@@ -22,12 +22,12 @@ export async function fetchGuests(): Promise<Guest[]> {
   }
 }
 
-export async function addGuest(name: string, family: string): Promise<Guest | null> {
+export async function addGuest(name: string, family: string, isChild: boolean = false): Promise<Guest | null> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/guests`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, family }),
+      body: JSON.stringify({ name, family, isChild }),
     });
     if (!response.ok) throw new Error('Erro ao adicionar convidado');
     const data = await response.json();
@@ -38,7 +38,7 @@ export async function addGuest(name: string, family: string): Promise<Guest | nu
   }
 }
 
-export async function updateGuest(id: string, updates: { status?: GuestStatus; observations?: string; family?: string }): Promise<boolean> {
+export async function updateGuest(id: string, updates: { status?: GuestStatus; observations?: string; family?: string; isChild?: boolean }): Promise<boolean> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/guests/${id}`, {
       method: 'PUT',

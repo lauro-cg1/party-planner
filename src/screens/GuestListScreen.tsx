@@ -17,13 +17,19 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Guest, GuestStatus, GuestPayment } from '../types';
 import { fetchGuests, addGuest, updateGuest, deleteGuest, addPayment, deletePayment } from '../services/api';
 
 const PRICE_PER_GUEST = 150;
+const PRICE_PER_CHILD = 75;
 const REFRESH_INTERVAL = 20000;
+
+function getGuestPrice(guest: Guest): number {
+  return guest.isChild ? PRICE_PER_CHILD : PRICE_PER_GUEST;
+}
 
 const STATUS_CONFIG: Record<GuestStatus, { label: string; color: string; bg: string; icon: string }> = {
   pendente: { label: 'Pendente', color: '#F57C00', bg: '#FFF3E0', icon: 'time-outline' },
@@ -48,6 +54,7 @@ export default function GuestListScreen() {
   const [guests, setGuests] = useState<Guest[]>([]);
   const [newName, setNewName] = useState('');
   const [newFamily, setNewFamily] = useState('');
+  const [newIsChild, setNewIsChild] = useState(false);
   const [loading, setLoading] = useState(true);
   const [familyFilter, setFamilyFilter] = useState<string | null>(null);
 
@@ -61,6 +68,7 @@ export default function GuestListScreen() {
   const [paymentType, setPaymentType] = useState<'parcial' | 'total'>('total');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentDate, setPaymentDate] = useState('');
+  const [paymentIsChild, setPaymentIsChild] = useState(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -90,11 +98,12 @@ export default function GuestListScreen() {
       Alert.alert('Atenção', 'Digite o nome do convidado');
       return;
     }
-    const guest = await addGuest(trimmed, newFamily.trim());
+    const guest = await addGuest(trimmed, newFamily.trim(), newIsChild);
     if (guest) {
       setGuests((prev) => [...prev, guest]);
       setNewName('');
       setNewFamily('');
+      setNewIsChild(false);
     } else {
       Alert.alert('Erro', 'Não foi possível adicionar o convidado');
     }
@@ -103,8 +112,10 @@ export default function GuestListScreen() {
   const handleStatusChange = async (guest: Guest, status: GuestStatus) => {
     if (status === 'pago_parcial' || status === 'pago_total') {
       setSelectedGuest(guest);
+      setPaymentIsChild(!!guest.isChild);
+      const guestPrice = getGuestPrice(guest);
       setPaymentType(status === 'pago_total' ? 'total' : 'parcial');
-      const remaining = PRICE_PER_GUEST - (guest.totalPaid || 0);
+      const remaining = guestPrice - (guest.totalPaid || 0);
       if (status === 'pago_total') {
         setPaymentAmount(remaining > 0 ? remaining.toFixed(2).replace('.', ',') : '');
       } else {
@@ -137,14 +148,20 @@ export default function GuestListScreen() {
     const parts = paymentDate.trim().split('/');
     const isoDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
 
+    // Update isChild if changed in payment modal
+    if (!!selectedGuest.isChild !== paymentIsChild) {
+      await updateGuest(selectedGuest.id, { isChild: paymentIsChild });
+    }
+
     const payment = await addPayment(selectedGuest.id, amount, isoDate);
     if (!payment) {
       Alert.alert('Erro', 'Não foi possível registrar o pagamento');
       return;
     }
 
+    const guestPrice = paymentIsChild ? PRICE_PER_CHILD : PRICE_PER_GUEST;
     const newTotalPaid = (selectedGuest.totalPaid || 0) + amount;
-    const newStatus: GuestStatus = newTotalPaid >= PRICE_PER_GUEST ? 'pago_total' : 'pago_parcial';
+    const newStatus: GuestStatus = newTotalPaid >= guestPrice ? 'pago_total' : 'pago_parcial';
     await updateGuest(selectedGuest.id, { status: newStatus });
 
     setGuests((prev) =>
@@ -152,6 +169,7 @@ export default function GuestListScreen() {
         if (g.id !== selectedGuest.id) return g;
         return {
           ...g,
+          isChild: paymentIsChild ? 1 : 0,
           status: newStatus,
           totalPaid: newTotalPaid,
           payments: [...(g.payments || []), payment],
@@ -205,8 +223,9 @@ export default function GuestListScreen() {
     if (success) {
       const updatedPayments = (selectedGuest.payments || []).filter((p) => p.id !== paymentId);
       const newTotalPaid = updatedPayments.reduce((s, p) => s + p.amount, 0);
+      const guestPrice = getGuestPrice(selectedGuest);
       let newStatus: GuestStatus;
-      if (newTotalPaid >= PRICE_PER_GUEST) {
+      if (newTotalPaid >= guestPrice) {
         newStatus = 'pago_total';
       } else if (newTotalPaid > 0) {
         newStatus = 'pago_parcial';
@@ -241,8 +260,9 @@ export default function GuestListScreen() {
   };
 
   const getStatusLabel = (guest: Guest) => {
+    const guestPrice = getGuestPrice(guest);
     if (guest.status === 'pago_parcial') {
-      const remaining = PRICE_PER_GUEST - (guest.totalPaid || 0);
+      const remaining = guestPrice - (guest.totalPaid || 0);
       return `Parcial - Faltam ${formatCurrency(remaining > 0 ? remaining : 0)}`;
     }
     if (guest.status === 'pago_total') return 'Pago totalmente';
@@ -271,6 +291,12 @@ export default function GuestListScreen() {
               <Text style={styles.guestName}>{item.name}</Text>
             </View>
             <View style={styles.guestRightCol}>
+              {item.isChild ? (
+                <View style={[styles.familyBadge, { backgroundColor: '#FFF8E1' }]}>
+                  <Ionicons name="happy" size={14} color="#F57C00" />
+                  <Text style={[styles.familyBadgeText, { color: '#F57C00' }]}>Criança</Text>
+                </View>
+              ) : null}
               {item.family ? (
                 <View style={styles.familyBadge}>
                   <Ionicons name="people" size={14} color="#6D4C41" />
@@ -397,6 +423,15 @@ export default function GuestListScreen() {
             onChangeText={setNewFamily}
           />
         </View>
+        <View style={styles.childToggleRow}>
+          <Text style={styles.childToggleLabel}>É criança? (R$ 75,00)</Text>
+          <Switch
+            value={newIsChild}
+            onValueChange={setNewIsChild}
+            trackColor={{ false: '#D7CCC8', true: '#A5D6A7' }}
+            thumbColor={newIsChild ? '#2E7D32' : '#BDBDBD'}
+          />
+        </View>
         <TouchableOpacity style={styles.addButton} onPress={handleAddGuest}>
           <Ionicons name="person-add" size={22} color="#FFF" />
           <Text style={styles.addButtonText}>Adicionar Convidado</Text>
@@ -439,9 +474,27 @@ export default function GuestListScreen() {
 
             {selectedGuest && (
               <Text style={styles.modalSubtitle}>
-                {selectedGuest.name} — Já pago: {formatCurrency(selectedGuest.totalPaid || 0)} de {formatCurrency(PRICE_PER_GUEST)}
+                {selectedGuest.name} — Já pago: {formatCurrency(selectedGuest.totalPaid || 0)} de {formatCurrency(paymentIsChild ? PRICE_PER_CHILD : PRICE_PER_GUEST)}
               </Text>
             )}
+
+            {/* Child toggle */}
+            <View style={styles.childToggleRow}>
+              <Text style={styles.childToggleLabel}>É criança? (R$ 75,00)</Text>
+              <Switch
+                value={paymentIsChild}
+                onValueChange={(val) => {
+                  setPaymentIsChild(val);
+                  if (paymentType === 'total' && selectedGuest) {
+                    const price = val ? PRICE_PER_CHILD : PRICE_PER_GUEST;
+                    const rest = price - (selectedGuest.totalPaid || 0);
+                    setPaymentAmount(rest > 0 ? rest.toFixed(2).replace('.', ',') : '');
+                  }
+                }}
+                trackColor={{ false: '#D7CCC8', true: '#A5D6A7' }}
+                thumbColor={paymentIsChild ? '#2E7D32' : '#BDBDBD'}
+              />
+            </View>
 
             <View style={styles.paymentTypeRow}>
               <TouchableOpacity
@@ -459,7 +512,8 @@ export default function GuestListScreen() {
                 onPress={() => {
                   setPaymentType('total');
                   if (selectedGuest) {
-                    const rest = PRICE_PER_GUEST - (selectedGuest.totalPaid || 0);
+                    const price = paymentIsChild ? PRICE_PER_CHILD : PRICE_PER_GUEST;
+                    const rest = price - (selectedGuest.totalPaid || 0);
                     setPaymentAmount(rest > 0 ? rest.toFixed(2).replace('.', ',') : '');
                   }
                 }}
@@ -537,8 +591,8 @@ export default function GuestListScreen() {
                   <View style={styles.paymentSummaryCard}>
                     <Text style={styles.paymentSummaryTitle}>Resumo de Pagamento</Text>
                     <View style={styles.paymentSummaryRow}>
-                      <Text style={styles.paymentSummaryLabel}>Valor do convite:</Text>
-                      <Text style={styles.paymentSummaryValue}>{formatCurrency(PRICE_PER_GUEST)}</Text>
+                      <Text style={styles.paymentSummaryLabel}>Valor do convite{selectedGuest.isChild ? ' (criança)' : ''}:</Text>
+                      <Text style={styles.paymentSummaryValue}>{formatCurrency(getGuestPrice(selectedGuest))}</Text>
                     </View>
                     <View style={styles.paymentSummaryRow}>
                       <Text style={styles.paymentSummaryLabel}>Total pago:</Text>
@@ -547,7 +601,7 @@ export default function GuestListScreen() {
                     <View style={[styles.paymentSummaryRow, { borderTopWidth: 1, borderTopColor: '#E0E0E0', paddingTop: 8 }]}>
                       <Text style={[styles.paymentSummaryLabel, { fontWeight: '700' }]}>Restante:</Text>
                       <Text style={[styles.paymentSummaryValue, { color: '#C62828', fontWeight: '800' }]}>
-                        {formatCurrency(Math.max(0, PRICE_PER_GUEST - (selectedGuest.totalPaid || 0)))}
+                        {formatCurrency(Math.max(0, getGuestPrice(selectedGuest) - (selectedGuest.totalPaid || 0)))}
                       </Text>
                     </View>
                   </View>
@@ -589,6 +643,7 @@ export default function GuestListScreen() {
                         setPaymentType('parcial');
                         setPaymentAmount('');
                         setPaymentDate('');
+                        setPaymentIsChild(!!selectedGuest.isChild);
                         setPaymentModalVisible(true);
                       }, 300);
                     }}
@@ -900,6 +955,24 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 18,
     fontWeight: '700',
+  },
+
+  childToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFF8E1',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: '#FFE082',
+  },
+  childToggleLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#5D4037',
   },
 
   // Detail modal
