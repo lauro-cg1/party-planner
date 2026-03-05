@@ -27,7 +27,7 @@ export default function App() {
 
   const player = useVideoPlayer(require('./assets/loading.mp4'), (p) => {
     p.loop = false;
-    p.muted = true;
+    p.muted = false;
     p.play();
   });
 
