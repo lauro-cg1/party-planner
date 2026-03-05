@@ -2,12 +2,14 @@
 // PLANEJADOR DE FESTA JUNINA
 // ==========================================
 
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import { View, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
 
 import GuestListScreen from './src/screens/GuestListScreen';
 import ShoppingListScreen from './src/screens/ShoppingListScreen';
@@ -17,6 +19,32 @@ import ChatbotScreen from './src/screens/ChatbotScreen';
 const Tab = createBottomTabNavigator();
 
 export default function App() {
+  const [isReady, setIsReady] = useState(false);
+  const videoRef = useRef<Video>(null);
+
+  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+    if (status.isLoaded && status.didJustFinish) {
+      setIsReady(true);
+    }
+  };
+
+  if (!isReady) {
+    return (
+      <View style={splashStyles.container}>
+        <StatusBar style="light" />
+        <Video
+          ref={videoRef}
+          source={require('./assets/loading.mp4')}
+          style={splashStyles.video}
+          resizeMode={ResizeMode.COVER}
+          shouldPlay
+          isLooping={false}
+          onPlaybackStatusUpdate={onPlaybackStatusUpdate}
+        />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <NavigationContainer>
@@ -107,3 +135,15 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
+
+const splashStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  video: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+});

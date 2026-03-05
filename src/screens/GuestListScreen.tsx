@@ -15,6 +15,8 @@ import {
   Modal,
   ScrollView,
   Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Guest, GuestStatus, GuestPayment } from '../types';
@@ -268,16 +270,18 @@ export default function GuestListScreen() {
               <Ionicons name="person" size={22} color="#5D4037" />
               <Text style={styles.guestName}>{item.name}</Text>
             </View>
-            {item.family ? (
-              <View style={styles.familyBadge}>
-                <Ionicons name="people" size={14} color="#6D4C41" />
-                <Text style={styles.familyBadgeText}>{item.family}</Text>
+            <View style={styles.guestRightCol}>
+              {item.family ? (
+                <View style={styles.familyBadge}>
+                  <Ionicons name="people" size={14} color="#6D4C41" />
+                  <Text style={styles.familyBadgeText}>{item.family}</Text>
+                </View>
+              ) : null}
+              <View style={[styles.statusBadge, { backgroundColor: config.bg }]}>
+                <Ionicons name={config.icon as any} size={18} color={config.color} />
+                <Text style={[styles.statusText, { color: config.color }]}>{getStatusLabel(item)}</Text>
               </View>
-            ) : null}
-          </View>
-          <View style={[styles.statusBadge, { backgroundColor: config.bg }]}>
-            <Ionicons name={config.icon as any} size={18} color={config.color} />
-            <Text style={[styles.statusText, { color: config.color }]}>{getStatusLabel(item)}</Text>
+            </View>
           </View>
         </TouchableOpacity>
 
@@ -307,7 +311,7 @@ export default function GuestListScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: '#F5F5F5' }]}
+            style={[styles.actionBtn, styles.trashBtn]}
             onPress={() => handleDelete(item.id, item.name)}
           >
             <Ionicons name="trash-outline" size={22} color="#999" />
@@ -328,23 +332,27 @@ export default function GuestListScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Summary Cards */}
-      <View style={styles.summaryRow}>
-        <View style={[styles.summaryCard, { backgroundColor: '#FFF8E1' }]}>
-          <Text style={styles.summaryNumber}>{counts.total}</Text>
-          <Text style={styles.summaryLabel}>Total</Text>
+      {/* Summary Cards 2x2 */}
+      <View style={styles.summaryGrid}>
+        <View style={styles.summaryRow}>
+          <View style={[styles.summaryCard, { backgroundColor: '#FFF8E1' }]}>
+            <Text style={styles.summaryNumber}>{counts.total}</Text>
+            <Text style={styles.summaryLabel}>Total</Text>
+          </View>
+          <View style={[styles.summaryCard, { backgroundColor: '#E8F5E9' }]}>
+            <Text style={styles.summaryNumber}>{counts.confirmado}</Text>
+            <Text style={styles.summaryLabel}>Confirmados</Text>
+          </View>
         </View>
-        <View style={[styles.summaryCard, { backgroundColor: '#E8F5E9' }]}>
-          <Text style={styles.summaryNumber}>{counts.confirmado}</Text>
-          <Text style={styles.summaryLabel}>Confirmados</Text>
-        </View>
-        <View style={[styles.summaryCard, { backgroundColor: '#E3F2FD' }]}>
-          <Text style={styles.summaryNumber}>{counts.pago}</Text>
-          <Text style={styles.summaryLabel}>Pagos</Text>
-        </View>
-        <View style={[styles.summaryCard, { backgroundColor: '#FFEBEE' }]}>
-          <Text style={styles.summaryNumber}>{counts.nao_vem}</Text>
-          <Text style={styles.summaryLabel}>Não Vem</Text>
+        <View style={styles.summaryRow}>
+          <View style={[styles.summaryCard, { backgroundColor: '#E3F2FD' }]}>
+            <Text style={styles.summaryNumber}>{counts.pago}</Text>
+            <Text style={styles.summaryLabel}>Pagos</Text>
+          </View>
+          <View style={[styles.summaryCard, { backgroundColor: '#FFEBEE' }]}>
+            <Text style={styles.summaryNumber}>{counts.nao_vem}</Text>
+            <Text style={styles.summaryLabel}>Não Vem</Text>
+          </View>
         </View>
       </View>
 
@@ -417,7 +425,10 @@ export default function GuestListScreen() {
         animationType="slide"
         onRequestClose={() => setPaymentModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Registrar Pagamento</Text>
@@ -483,7 +494,7 @@ export default function GuestListScreen() {
               <Text style={styles.submitBtnText}>Confirmar Pagamento</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ============ GUEST DETAIL MODAL ============ */}
@@ -493,7 +504,10 @@ export default function GuestListScreen() {
         animationType="slide"
         onRequestClose={() => setDetailModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={[styles.modalContent, { maxHeight: Dimensions.get('window').height * 0.85 }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{selectedGuest?.name}</Text>
@@ -602,7 +616,7 @@ export default function GuestListScreen() {
               )}
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -614,10 +628,13 @@ const styles = StyleSheet.create({
   loadingText: { marginTop: 12, fontSize: 18, color: '#5D4037' },
 
   // Summary
-  summaryRow: {
-    flexDirection: 'row',
+  summaryGrid: {
     paddingHorizontal: 12,
     paddingTop: 14,
+    gap: 8,
+  },
+  summaryRow: {
+    flexDirection: 'row',
     gap: 8,
   },
   summaryCard: {
@@ -725,16 +742,21 @@ const styles = StyleSheet.create({
   guestHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    alignItems: 'flex-start',
   },
   guestNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     flex: 1,
+    paddingTop: 4,
   },
   guestName: { fontSize: 19, fontWeight: '700', color: '#3E2723', flexShrink: 1 },
+  guestRightCol: {
+    alignItems: 'flex-end',
+    gap: 6,
+    flexShrink: 0,
+  },
   familyBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -749,10 +771,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderRadius: 12,
     gap: 6,
-    alignSelf: 'flex-start',
   },
   statusText: { fontSize: 15, fontWeight: '700' },
 
@@ -769,6 +790,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 12,
     gap: 4,
+  },
+  trashBtn: {
+    flex: 0,
+    width: 44,
+    backgroundColor: '#F5F5F5',
   },
   actionLabel: {
     fontSize: 13,
