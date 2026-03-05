@@ -603,33 +603,33 @@ export default function GuestListScreen() {
         animationType="slide"
         onRequestClose={() => setDetailModalVisible(false)}
       >
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
+        <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { maxHeight: Dimensions.get('window').height * 0.85 }]}>
             <View style={styles.modalHeader}>
-              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <TextInput
-                  style={[styles.modalTitleInput]}
-                  value={editNameText}
-                  onChangeText={setEditNameText}
-                  onBlur={handleSaveName}
-                  returnKeyType="done"
-                  onSubmitEditing={handleSaveName}
-                />
-                <TouchableOpacity onPress={handleSaveName}>
-                  <Ionicons name="save-outline" size={22} color="#5D4037" />
-                </TouchableOpacity>
-              </View>
+              <Text style={styles.modalTitle}>Detalhes do Convidado</Text>
               <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
                 <Ionicons name="close" size={28} color="#5D4037" />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               {selectedGuest && (
                 <>
+                  {/* Editable Name */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 }}>
+                    <TextInput
+                      style={[styles.modalTitleInput, { flex: 1 }]}
+                      value={editNameText}
+                      onChangeText={setEditNameText}
+                      onBlur={handleSaveName}
+                      returnKeyType="done"
+                      onSubmitEditing={handleSaveName}
+                    />
+                    <TouchableOpacity onPress={handleSaveName}>
+                      <Ionicons name="save-outline" size={22} color="#5D4037" />
+                    </TouchableOpacity>
+                  </View>
+
                   {/* Status & Info */}
                   <View style={styles.detailInfoRow}>
                     <View style={[styles.detailInfoCard, { backgroundColor: STATUS_CONFIG[selectedGuest.status].bg }]}>
@@ -728,7 +728,7 @@ export default function GuestListScreen() {
               )}
             </ScrollView>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
 
       {/* ============ FAMILY DROPDOWN MODAL ============ */}

@@ -383,28 +383,28 @@ export default function ShoppingListScreen() {
         animationType="slide"
         onRequestClose={() => setDetailModalVisible(false)}
       >
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
+        <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { maxHeight: Dimensions.get('window').height * 0.85 }]}>
             <View style={styles.modalHeader}>
-              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <TextInput
-                  style={styles.modalTitleInput}
-                  value={editItemName}
-                  onChangeText={setEditItemName}
-                  returnKeyType="done"
-                />
-              </View>
+              <Text style={styles.modalTitle}>Detalhes do Item</Text>
               <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
                 <Ionicons name="close" size={28} color="#5D4037" />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               {selectedItem && (
                 <>
+                  {/* Editable Name */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+                    <TextInput
+                      style={[styles.modalTitleInput, { flex: 1 }]}
+                      value={editItemName}
+                      onChangeText={setEditItemName}
+                      returnKeyType="done"
+                    />
+                  </View>
+
                   {/* Editable Price + Save */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
                     <Text style={styles.fieldLabel}>Preço (R$):</Text>
@@ -540,7 +540,7 @@ export default function ShoppingListScreen() {
               )}
             </ScrollView>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
     </KeyboardAvoidingView>
   );
