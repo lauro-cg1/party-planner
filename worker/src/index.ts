@@ -53,7 +53,21 @@ async function handleGetGuests(db: D1Database): Promise<Response> {
   const enrichedGuests = (guests.results || []).map((g: any) => {
     const guestPayments = paymentsByGuest[g.id] || [];
     const totalPaid = guestPayments.reduce((sum: number, p: any) => sum + p.amount, 0);
-    return { ...g, payments: guestPayments, totalPaid };
+    const guestPrice = g.isChild ? 75 : 150;
+    let derivedStatus = g.status;
+
+    // Keep explicit RSVP statuses, derive payment statuses from actual payments.
+    if (g.status !== 'confirmado' && g.status !== 'nao_vem') {
+      if (totalPaid >= guestPrice && totalPaid > 0) {
+        derivedStatus = 'pago_total';
+      } else if (totalPaid > 0) {
+        derivedStatus = 'pago_parcial';
+      } else {
+        derivedStatus = 'pendente';
+      }
+    }
+
+    return { ...g, status: derivedStatus, payments: guestPayments, totalPaid };
   });
 
   return jsonResponse({ guests: enrichedGuests });
