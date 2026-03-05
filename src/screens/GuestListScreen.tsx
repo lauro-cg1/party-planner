@@ -17,7 +17,6 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
-  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Guest, GuestStatus, GuestPayment } from '../types';
@@ -55,6 +54,7 @@ export default function GuestListScreen() {
   const [newName, setNewName] = useState('');
   const [newFamily, setNewFamily] = useState('');
   const [newIsChild, setNewIsChild] = useState(false);
+  const [familyDropdownOpen, setFamilyDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [familyFilter, setFamilyFilter] = useState<string | null>(null);
 
@@ -358,28 +358,86 @@ export default function GuestListScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Summary Cards 2x2 */}
+      {/* Summary Cards - single row */}
       <View style={styles.summaryGrid}>
-        <View style={styles.summaryRow}>
-          <View style={[styles.summaryCard, { backgroundColor: '#FFF8E1' }]}>
-            <Text style={styles.summaryNumber}>{counts.total}</Text>
-            <Text style={styles.summaryLabel}>Total</Text>
-          </View>
-          <View style={[styles.summaryCard, { backgroundColor: '#E8F5E9' }]}>
-            <Text style={styles.summaryNumber}>{counts.confirmado}</Text>
-            <Text style={styles.summaryLabel}>Confirmados</Text>
+        <View style={[styles.summaryCard, { backgroundColor: '#FFF8E1' }]}>
+          <Text style={styles.summaryNumber}>{counts.total}</Text>
+          <Text style={styles.summaryLabel} numberOfLines={1}>Total</Text>
+        </View>
+        <View style={[styles.summaryCard, { backgroundColor: '#E8F5E9' }]}>
+          <Text style={styles.summaryNumber}>{counts.confirmado}</Text>
+          <Text style={styles.summaryLabel} numberOfLines={1}>Confirmados</Text>
+        </View>
+        <View style={[styles.summaryCard, { backgroundColor: '#E3F2FD' }]}>
+          <Text style={styles.summaryNumber}>{counts.pago}</Text>
+          <Text style={styles.summaryLabel} numberOfLines={1}>Pagos</Text>
+        </View>
+        <View style={[styles.summaryCard, { backgroundColor: '#FFEBEE' }]}>
+          <Text style={styles.summaryNumber}>{counts.nao_vem}</Text>
+          <Text style={styles.summaryLabel} numberOfLines={1}>Não Vem</Text>
+        </View>
+      </View>
+
+      {/* Input Area */}
+      <View style={styles.inputSection}>
+        <View style={styles.inputRow}>
+          <TextInput
+            style={[styles.input, { flex: 2 }]}
+            placeholder="Nome do convidado..."
+            placeholderTextColor="#A1887F"
+            value={newName}
+            onChangeText={setNewName}
+          />
+          <View style={{ flex: 1, position: 'relative' }}>
+            <TouchableOpacity
+              style={[styles.input, styles.familyDropdownBtn]}
+              onPress={() => setFamilyDropdownOpen(!familyDropdownOpen)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.familyDropdownText, !newFamily && { color: '#A1887F' }]} numberOfLines={1}>
+                {newFamily || 'Família'}
+              </Text>
+              <Ionicons name={familyDropdownOpen ? 'chevron-up' : 'chevron-down'} size={18} color="#A1887F" />
+            </TouchableOpacity>
+            {familyDropdownOpen && (
+              <View style={styles.familyDropdown}>
+                <ScrollView style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                  {families.map((f) => (
+                    <TouchableOpacity
+                      key={f}
+                      style={[styles.familyDropdownItem, newFamily === f && styles.familyDropdownItemActive]}
+                      onPress={() => { setNewFamily(f); setFamilyDropdownOpen(false); }}
+                    >
+                      <Text style={[styles.familyDropdownItemText, newFamily === f && { color: '#FFF' }]}>{f}</Text>
+                    </TouchableOpacity>
+                  ))}
+                  <View style={styles.familyDropdownInputRow}>
+                    <TextInput
+                      style={styles.familyDropdownInput}
+                      placeholder="Nova família..."
+                      placeholderTextColor="#A1887F"
+                      value={families.includes(newFamily) ? '' : newFamily}
+                      onChangeText={(t) => setNewFamily(t)}
+                    />
+                    <TouchableOpacity onPress={() => setFamilyDropdownOpen(false)} style={styles.familyDropdownOkBtn}>
+                      <Ionicons name="checkmark" size={20} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
+                </ScrollView>
+              </View>
+            )}
           </View>
         </View>
-        <View style={styles.summaryRow}>
-          <View style={[styles.summaryCard, { backgroundColor: '#E3F2FD' }]}>
-            <Text style={styles.summaryNumber}>{counts.pago}</Text>
-            <Text style={styles.summaryLabel}>Pagos</Text>
+        <TouchableOpacity style={styles.childCheckboxRow} onPress={() => setNewIsChild(!newIsChild)} activeOpacity={0.7}>
+          <View style={[styles.checkbox, newIsChild && styles.checkboxChecked]}>
+            {newIsChild && <Ionicons name="checkmark" size={16} color="#FFF" />}
           </View>
-          <View style={[styles.summaryCard, { backgroundColor: '#FFEBEE' }]}>
-            <Text style={styles.summaryNumber}>{counts.nao_vem}</Text>
-            <Text style={styles.summaryLabel}>Não Vem</Text>
-          </View>
-        </View>
+          <Text style={styles.childToggleLabel}>É criança? (R$ 75,00)</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.addButton} onPress={handleAddGuest}>
+          <Ionicons name="person-add" size={22} color="#FFF" />
+          <Text style={styles.addButtonText}>Adicionar Convidado</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Family Filter */}
@@ -404,39 +462,6 @@ export default function GuestListScreen() {
           </ScrollView>
         </View>
       )}
-
-      {/* Input Area */}
-      <View style={styles.inputSection}>
-        <View style={styles.inputRow}>
-          <TextInput
-            style={[styles.input, { flex: 2 }]}
-            placeholder="Nome do convidado..."
-            placeholderTextColor="#A1887F"
-            value={newName}
-            onChangeText={setNewName}
-          />
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            placeholder="Família"
-            placeholderTextColor="#A1887F"
-            value={newFamily}
-            onChangeText={setNewFamily}
-          />
-        </View>
-        <View style={styles.childToggleRow}>
-          <Text style={styles.childToggleLabel}>É criança? (R$ 75,00)</Text>
-          <Switch
-            value={newIsChild}
-            onValueChange={setNewIsChild}
-            trackColor={{ false: '#D7CCC8', true: '#A5D6A7' }}
-            thumbColor={newIsChild ? '#2E7D32' : '#BDBDBD'}
-          />
-        </View>
-        <TouchableOpacity style={styles.addButton} onPress={handleAddGuest}>
-          <Ionicons name="person-add" size={22} color="#FFF" />
-          <Text style={styles.addButtonText}>Adicionar Convidado</Text>
-        </TouchableOpacity>
-      </View>
 
       {/* Guest List */}
       <FlatList
@@ -478,23 +503,25 @@ export default function GuestListScreen() {
               </Text>
             )}
 
-            {/* Child toggle */}
-            <View style={styles.childToggleRow}>
+            {/* Child checkbox */}
+            <TouchableOpacity
+              style={styles.childCheckboxRow}
+              onPress={() => {
+                const val = !paymentIsChild;
+                setPaymentIsChild(val);
+                if (paymentType === 'total' && selectedGuest) {
+                  const price = val ? PRICE_PER_CHILD : PRICE_PER_GUEST;
+                  const rest = price - (selectedGuest.totalPaid || 0);
+                  setPaymentAmount(rest > 0 ? rest.toFixed(2).replace('.', ',') : '');
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.checkbox, paymentIsChild && styles.checkboxChecked]}>
+                {paymentIsChild && <Ionicons name="checkmark" size={16} color="#FFF" />}
+              </View>
               <Text style={styles.childToggleLabel}>É criança? (R$ 75,00)</Text>
-              <Switch
-                value={paymentIsChild}
-                onValueChange={(val) => {
-                  setPaymentIsChild(val);
-                  if (paymentType === 'total' && selectedGuest) {
-                    const price = val ? PRICE_PER_CHILD : PRICE_PER_GUEST;
-                    const rest = price - (selectedGuest.totalPaid || 0);
-                    setPaymentAmount(rest > 0 ? rest.toFixed(2).replace('.', ',') : '');
-                  }
-                }}
-                trackColor={{ false: '#D7CCC8', true: '#A5D6A7' }}
-                thumbColor={paymentIsChild ? '#2E7D32' : '#BDBDBD'}
-              />
-            </View>
+            </TouchableOpacity>
 
             <View style={styles.paymentTypeRow}>
               <TouchableOpacity
@@ -684,18 +711,16 @@ const styles = StyleSheet.create({
 
   // Summary
   summaryGrid: {
+    flexDirection: 'row',
     paddingHorizontal: 12,
     paddingTop: 14,
-    gap: 8,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    gap: 8,
+    gap: 6,
   },
   summaryCard: {
     flex: 1,
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
     alignItems: 'center',
     elevation: 2,
     shadowColor: '#000',
@@ -703,8 +728,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3,
   },
-  summaryNumber: { fontSize: 26, fontWeight: '800', color: '#3E2723' },
-  summaryLabel: { fontSize: 13, color: '#5D4037', marginTop: 2, fontWeight: '600' },
+  summaryNumber: { fontSize: 18, fontWeight: '800', color: '#3E2723' },
+  summaryLabel: { fontSize: 10, color: '#5D4037', marginTop: 1, fontWeight: '600' },
 
   // Filter
   filterSection: {
@@ -957,22 +982,94 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  childToggleRow: {
+  childCheckboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+    paddingVertical: 4,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#A1887F',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF',
+  },
+  checkboxChecked: {
+    backgroundColor: '#5D4037',
+    borderColor: '#5D4037',
+  },
+  childToggleLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#5D4037',
+  },
+  familyDropdownBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFF8E1',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 12,
-    borderWidth: 1.5,
-    borderColor: '#FFE082',
   },
-  childToggleLabel: {
+  familyDropdownText: {
+    fontSize: 17,
+    color: '#3E2723',
+    flex: 1,
+  },
+  familyDropdown: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#D7CCC8',
+    marginTop: 4,
+    zIndex: 999,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+  },
+  familyDropdownItem: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0E8E0',
+  },
+  familyDropdownItemActive: {
+    backgroundColor: '#5D4037',
+  },
+  familyDropdownItemText: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#5D4037',
+    color: '#3E2723',
+    fontWeight: '600',
+  },
+  familyDropdownInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    gap: 6,
+  },
+  familyDropdownInput: {
+    flex: 1,
+    backgroundColor: '#FAF3E0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    borderWidth: 1,
+    borderColor: '#D7CCC8',
+    color: '#3E2723',
+  },
+  familyDropdownOkBtn: {
+    backgroundColor: '#5D4037',
+    borderRadius: 10,
+    padding: 8,
   },
 
   // Detail modal
