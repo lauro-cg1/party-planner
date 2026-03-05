@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform, Image } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,30 +19,59 @@ import ChatbotScreen from './src/screens/ChatbotScreen';
 const Tab = createBottomTabNavigator();
 
 export default function App() {
-  const [isReady, setIsReady] = useState(false);
+  const iosMajorVersion = Platform.OS === 'ios'
+    ? Number(String(Platform.Version).split('.')[0])
+    : null;
+  const shouldSkipSplashVideo = Platform.OS === 'ios' && !!iosMajorVersion && iosMajorVersion <= 15;
+  const [isReady, setIsReady] = useState(shouldSkipSplashVideo);
 
   const player = useVideoPlayer(require('./assets/loading.mp4'), (p) => {
     p.loop = false;
+    p.muted = true;
     p.play();
   });
 
   useEffect(() => {
+    if (shouldSkipSplashVideo) {
+      return;
+    }
+
     const subscription = player.addListener('playToEnd', () => {
       setIsReady(true);
     });
-    return () => subscription.remove();
-  }, [player]);
+
+    const statusSubscription = player.addListener('statusChange', ({ status }) => {
+      if (status === 'error') {
+        setIsReady(true);
+      }
+    });
+
+    // Prevent startup lock if the splash video cannot be decoded on older iOS devices.
+    const timeoutId = setTimeout(() => {
+      setIsReady(true);
+    }, 5000);
+
+    return () => {
+      subscription.remove();
+      statusSubscription.remove();
+      clearTimeout(timeoutId);
+    };
+  }, [player, shouldSkipSplashVideo]);
 
   if (!isReady) {
     return (
       <View style={splashStyles.container}>
         <StatusBar style="light" />
-        <VideoView
-          player={player}
-          style={splashStyles.video}
-          contentFit="cover"
-          nativeControls={false}
-        />
+        {shouldSkipSplashVideo ? (
+          <Image source={require('./assets/Logo.png')} style={splashStyles.logo} resizeMode="contain" />
+        ) : (
+          <VideoView
+            player={player}
+            style={splashStyles.video}
+            contentFit="cover"
+            nativeControls={false}
+          />
+        )}
       </View>
     );
   }
@@ -147,5 +176,10 @@ const splashStyles = StyleSheet.create({
     flex: 1,
     width: '100%',
     height: '100%',
+  },
+  logo: {
+    width: '70%',
+    height: '70%',
+    alignSelf: 'center',
   },
 });
