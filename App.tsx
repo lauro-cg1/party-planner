@@ -2,14 +2,14 @@
 // PLANEJADOR DE FESTA JUNINA
 // ==========================================
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 
 import GuestListScreen from './src/screens/GuestListScreen';
 import ShoppingListScreen from './src/screens/ShoppingListScreen';
@@ -20,26 +20,28 @@ const Tab = createBottomTabNavigator();
 
 export default function App() {
   const [isReady, setIsReady] = useState(false);
-  const videoRef = useRef<Video>(null);
 
-  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
-    if (status.isLoaded && status.didJustFinish) {
+  const player = useVideoPlayer(require('./assets/loading.mp4'), (p) => {
+    p.loop = false;
+    p.play();
+  });
+
+  useEffect(() => {
+    const subscription = player.addListener('playToEnd', () => {
       setIsReady(true);
-    }
-  };
+    });
+    return () => subscription.remove();
+  }, [player]);
 
   if (!isReady) {
     return (
       <View style={splashStyles.container}>
         <StatusBar style="light" />
-        <Video
-          ref={videoRef}
-          source={require('./assets/loading.mp4')}
+        <VideoView
+          player={player}
           style={splashStyles.video}
-          resizeMode={ResizeMode.COVER}
-          shouldPlay
-          isLooping={false}
-          onPlaybackStatusUpdate={onPlaybackStatusUpdate}
+          contentFit="cover"
+          nativeControls={false}
         />
       </View>
     );
