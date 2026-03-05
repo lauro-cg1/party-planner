@@ -27,6 +27,9 @@ const PRICE_PER_GUEST = 150;
 const PRICE_PER_CHILD = 75;
 const REFRESH_INTERVAL = 20000;
 
+const { width: screenWidth } = Dimensions.get('window');
+const isSmall = screenWidth <= 414; // iPhone 6/6s/Plus and smaller
+
 function getGuestPrice(guest: Guest): number {
   return guest.isChild ? PRICE_PER_CHILD : PRICE_PER_GUEST;
 }
@@ -63,6 +66,7 @@ export default function GuestListScreen() {
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [obsText, setObsText] = useState('');
+  const [editNameText, setEditNameText] = useState('');
 
   // Payment modal
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
@@ -223,7 +227,23 @@ export default function GuestListScreen() {
   const handleOpenDetail = (guest: Guest) => {
     setSelectedGuest(guest);
     setObsText(guest.observations || '');
+    setEditNameText(guest.name);
     setDetailModalVisible(true);
+  };
+
+  const handleSaveName = async () => {
+    if (!selectedGuest) return;
+    const trimmed = editNameText.trim();
+    if (!trimmed) { Alert.alert('Atenção', 'Nome não pode ser vazio'); return; }
+    if (trimmed === selectedGuest.name) return;
+    markMutation();
+    const success = await updateGuest(selectedGuest.id, { name: trimmed });
+    if (success) {
+      setGuests((prev) => prev.map((g) => (g.id === selectedGuest.id ? { ...g, name: trimmed } : g)));
+      setSelectedGuest((prev) => prev ? { ...prev, name: trimmed } : prev);
+      Alert.alert('Sucesso', 'Nome atualizado!');
+    }
+    markMutation();
   };
 
   const handleSaveObservations = async () => {
@@ -312,24 +332,24 @@ export default function GuestListScreen() {
         <TouchableOpacity style={styles.guestInfoArea} onPress={() => handleOpenDetail(item)} activeOpacity={0.7}>
           <View style={styles.guestHeader}>
             <View style={styles.guestNameRow}>
-              <Ionicons name="person" size={22} color="#5D4037" />
+              <Ionicons name="person" size={isSmall ? 18 : 22} color="#5D4037" />
               <Text style={styles.guestName}>{item.name}</Text>
             </View>
             <View style={styles.guestRightCol}>
               {item.isChild ? (
                 <View style={[styles.familyBadge, { backgroundColor: '#FFF8E1' }]}>
-                  <Ionicons name="happy" size={14} color="#F57C00" />
+                  <Ionicons name="happy" size={isSmall ? 12 : 14} color="#F57C00" />
                   <Text style={[styles.familyBadgeText, { color: '#F57C00' }]}>Criança</Text>
                 </View>
               ) : null}
               {item.family ? (
                 <View style={styles.familyBadge}>
-                  <Ionicons name="people" size={14} color="#6D4C41" />
+                  <Ionicons name="people" size={isSmall ? 12 : 14} color="#6D4C41" />
                   <Text style={styles.familyBadgeText}>{item.family}</Text>
                 </View>
               ) : null}
               <View style={[styles.statusBadge, { backgroundColor: config.bg }]}>
-                <Ionicons name={config.icon as any} size={18} color={config.color} />
+                <Ionicons name={config.icon as any} size={isSmall ? 14 : 18} color={config.color} />
                 <Text style={[styles.statusText, { color: config.color }]}>{getStatusLabel(item)}</Text>
               </View>
             </View>
@@ -341,7 +361,7 @@ export default function GuestListScreen() {
             style={[styles.actionBtn, { backgroundColor: STATUS_CONFIG.confirmado.bg }]}
             onPress={() => handleStatusChange(item, 'confirmado')}
           >
-            <Ionicons name="checkmark-circle" size={22} color={STATUS_CONFIG.confirmado.color} />
+            <Ionicons name="checkmark-circle" size={isSmall ? 18 : 22} color={STATUS_CONFIG.confirmado.color} />
             <Text style={[styles.actionLabel, { color: STATUS_CONFIG.confirmado.color }]}>Confirmado</Text>
           </TouchableOpacity>
 
@@ -349,7 +369,7 @@ export default function GuestListScreen() {
             style={[styles.actionBtn, { backgroundColor: '#E3F2FD' }]}
             onPress={() => handleStatusChange(item, 'pago_parcial')}
           >
-            <Ionicons name="wallet-outline" size={22} color="#1565C0" />
+            <Ionicons name="wallet-outline" size={isSmall ? 18 : 22} color="#1565C0" />
             <Text style={[styles.actionLabel, { color: '#1565C0' }]}>Pago</Text>
           </TouchableOpacity>
 
@@ -357,7 +377,7 @@ export default function GuestListScreen() {
             style={[styles.actionBtn, { backgroundColor: STATUS_CONFIG.nao_vem.bg }]}
             onPress={() => handleStatusChange(item, 'nao_vem')}
           >
-            <Ionicons name="close-circle" size={22} color={STATUS_CONFIG.nao_vem.color} />
+            <Ionicons name="close-circle" size={isSmall ? 18 : 22} color={STATUS_CONFIG.nao_vem.color} />
             <Text style={[styles.actionLabel, { color: STATUS_CONFIG.nao_vem.color }]}>Não Vem</Text>
           </TouchableOpacity>
 
@@ -365,7 +385,7 @@ export default function GuestListScreen() {
             style={[styles.actionBtn, styles.trashBtn]}
             onPress={() => handleDelete(item.id, item.name)}
           >
-            <Ionicons name="trash-outline" size={22} color="#999" />
+            <Ionicons name="trash-outline" size={isSmall ? 18 : 22} color="#999" />
           </TouchableOpacity>
         </View>
       </View>
@@ -589,7 +609,19 @@ export default function GuestListScreen() {
         >
           <View style={[styles.modalContent, { maxHeight: Dimensions.get('window').height * 0.85 }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{selectedGuest?.name}</Text>
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <TextInput
+                  style={[styles.modalTitleInput]}
+                  value={editNameText}
+                  onChangeText={setEditNameText}
+                  onBlur={handleSaveName}
+                  returnKeyType="done"
+                  onSubmitEditing={handleSaveName}
+                />
+                <TouchableOpacity onPress={handleSaveName}>
+                  <Ionicons name="save-outline" size={22} color="#5D4037" />
+                </TouchableOpacity>
+              </View>
               <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
                 <Ionicons name="close" size={28} color="#5D4037" />
               </TouchableOpacity>
@@ -709,7 +741,10 @@ export default function GuestListScreen() {
         <TouchableWithoutFeedback onPress={() => setFamilyDropdownOpen(false)}>
           <View style={styles.familyModalOverlay}>
             <TouchableWithoutFeedback>
-              <View style={styles.familyModalContent}>
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.familyModalContent}
+              >
                 <View style={styles.familyModalHeader}>
                   <Text style={styles.familyModalTitle}>Selecionar Família</Text>
                   <TouchableOpacity onPress={() => setFamilyDropdownOpen(false)}>
@@ -743,7 +778,7 @@ export default function GuestListScreen() {
                     <Ionicons name="checkmark" size={22} color="#FFF" />
                   </TouchableOpacity>
                 </View>
-              </View>
+              </KeyboardAvoidingView>
             </TouchableWithoutFeedback>
           </View>
         </TouchableWithoutFeedback>
@@ -766,9 +801,9 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     flex: 1,
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
+    borderRadius: isSmall ? 10 : 12,
+    paddingVertical: isSmall ? 6 : 8,
+    paddingHorizontal: isSmall ? 2 : 4,
     alignItems: 'center',
     elevation: 2,
     shadowColor: '#000',
@@ -776,8 +811,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3,
   },
-  summaryNumber: { fontSize: 18, fontWeight: '800', color: '#3E2723' },
-  summaryLabel: { fontSize: 10, color: '#5D4037', marginTop: 1, fontWeight: '600' },
+  summaryNumber: { fontSize: isSmall ? 15 : 18, fontWeight: '800', color: '#3E2723' },
+  summaryLabel: { fontSize: isSmall ? 9 : 10, color: '#5D4037', marginTop: 1, fontWeight: '600' },
 
   // Filter
   filterSection: {
@@ -789,8 +824,8 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   filterChip: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    paddingHorizontal: isSmall ? 12 : 18,
+    paddingVertical: isSmall ? 7 : 10,
     borderRadius: 20,
     backgroundColor: '#EFEBE9',
     borderWidth: 1.5,
@@ -801,7 +836,7 @@ const styles = StyleSheet.create({
     borderColor: '#5D4037',
   },
   filterChipText: {
-    fontSize: 15,
+    fontSize: isSmall ? 13 : 15,
     fontWeight: '600',
     color: '#5D4037',
   },
@@ -821,22 +856,22 @@ const styles = StyleSheet.create({
   },
   input: {
     backgroundColor: '#FFF',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 17,
+    borderRadius: isSmall ? 12 : 14,
+    paddingHorizontal: isSmall ? 12 : 16,
+    paddingVertical: isSmall ? 10 : 14,
+    fontSize: isSmall ? 14 : 17,
     borderWidth: 1.5,
     borderColor: '#D7CCC8',
     color: '#3E2723',
   },
   addButton: {
     backgroundColor: '#5D4037',
-    borderRadius: 14,
+    borderRadius: isSmall ? 12 : 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    gap: 8,
+    paddingVertical: isSmall ? 10 : 14,
+    gap: isSmall ? 6 : 8,
     elevation: 3,
     shadowColor: '#5D4037',
     shadowOffset: { width: 0, height: 2 },
@@ -845,7 +880,7 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     color: '#FFF',
-    fontSize: 17,
+    fontSize: isSmall ? 14 : 17,
     fontWeight: '700',
   },
 
@@ -853,9 +888,9 @@ const styles = StyleSheet.create({
   list: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 30 },
   guestCard: {
     backgroundColor: '#FFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 10,
+    borderRadius: isSmall ? 12 : 16,
+    padding: isSmall ? 12 : 16,
+    marginBottom: isSmall ? 8 : 10,
     borderWidth: 1,
     borderColor: '#E8E0D8',
     elevation: 2,
@@ -879,7 +914,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 4,
   },
-  guestName: { fontSize: 19, fontWeight: '700', color: '#3E2723', flexShrink: 1 },
+  guestName: { fontSize: isSmall ? 15 : 19, fontWeight: '700', color: '#3E2723', flexShrink: 1 },
   guestRightCol: {
     alignItems: 'flex-end',
     gap: 6,
@@ -894,7 +929,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 4,
   },
-  familyBadgeText: { fontSize: 13, fontWeight: '600', color: '#6D4C41' },
+  familyBadgeText: { fontSize: isSmall ? 11 : 13, fontWeight: '600', color: '#6D4C41' },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -903,7 +938,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 6,
   },
-  statusText: { fontSize: 15, fontWeight: '700' },
+  statusText: { fontSize: isSmall ? 12 : 15, fontWeight: '700' },
 
   // Actions
   actionRow: {
@@ -915,17 +950,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 12,
-    gap: 4,
+    paddingVertical: isSmall ? 7 : 10,
+    borderRadius: isSmall ? 10 : 12,
+    gap: isSmall ? 2 : 4,
   },
   trashBtn: {
     flex: 0,
-    width: 44,
+    width: isSmall ? 38 : 44,
     backgroundColor: '#F5F5F5',
   },
   actionLabel: {
-    fontSize: 13,
+    fontSize: isSmall ? 11 : 13,
     fontWeight: '700',
   },
 
@@ -954,10 +989,20 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 22,
+    fontSize: isSmall ? 18 : 22,
     fontWeight: '800',
     color: '#3E2723',
     flex: 1,
+  },
+  modalTitleInput: {
+    fontSize: isSmall ? 18 : 22,
+    fontWeight: '800',
+    color: '#3E2723',
+    flex: 1,
+    borderBottomWidth: 1.5,
+    borderBottomColor: '#D7CCC8',
+    paddingVertical: 4,
+    paddingHorizontal: 0,
   },
   modalSubtitle: {
     fontSize: 16,
@@ -1069,9 +1114,10 @@ const styles = StyleSheet.create({
   familyModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
-    padding: 24,
+    paddingTop: 80,
+    paddingHorizontal: 24,
   },
   familyModalContent: {
     backgroundColor: '#FFF',

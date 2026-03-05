@@ -31,6 +31,9 @@ import {
 
 const REFRESH_INTERVAL = 20000;
 
+const { width: screenWidth } = Dimensions.get('window');
+const isSmall = screenWidth <= 414;
+
 function formatCurrency(value: number) {
   return `R$ ${value.toFixed(2).replace('.', ',')}`;
 }
@@ -58,6 +61,8 @@ export default function ShoppingListScreen() {
   const [selectedItem, setSelectedItem] = useState<ShoppingItem | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [dueDateText, setDueDateText] = useState('');
+  const [editItemName, setEditItemName] = useState('');
+  const [editItemPrice, setEditItemPrice] = useState('');
 
   // Payment form (inline in detail modal)
   const [showPaymentForm, setShowPaymentForm] = useState(false);
@@ -135,8 +140,31 @@ export default function ShoppingListScreen() {
   const handleOpenDetail = (item: ShoppingItem) => {
     setSelectedItem(item);
     setDueDateText(item.dueDate ? formatDate(item.dueDate) : '');
+    setEditItemName(item.name);
+    setEditItemPrice(item.price.toFixed(2).replace('.', ','));
     setShowPaymentForm(false);
     setDetailModalVisible(true);
+  };
+
+  const handleSaveItemDetails = async () => {
+    if (!selectedItem) return;
+    const trimmedName = editItemName.trim();
+    const parsedPrice = parseFloat(editItemPrice.replace(',', '.'));
+    if (!trimmedName) { Alert.alert('Atenção', 'Nome não pode ser vazio'); return; }
+    if (isNaN(parsedPrice) || parsedPrice <= 0) { Alert.alert('Atenção', 'Preço inválido'); return; }
+    const updates: { name?: string; price?: number } = {};
+    if (trimmedName !== selectedItem.name) updates.name = trimmedName;
+    if (parsedPrice !== selectedItem.price) updates.price = parsedPrice;
+    if (Object.keys(updates).length === 0) return;
+    markMutation();
+    const success = await updateShoppingItem(selectedItem.id, updates);
+    if (success) {
+      const updated = { ...selectedItem, ...updates };
+      setSelectedItem(updated);
+      setItems((prev) => prev.map((i) => (i.id === selectedItem.id ? { ...i, ...updates } : i)));
+      Alert.alert('Sucesso', 'Dados atualizados!');
+    }
+    markMutation();
   };
 
   const handleSaveDueDate = async () => {
@@ -361,7 +389,14 @@ export default function ShoppingListScreen() {
         >
           <View style={[styles.modalContent, { maxHeight: Dimensions.get('window').height * 0.85 }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle} numberOfLines={2}>{selectedItem?.name}</Text>
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <TextInput
+                  style={styles.modalTitleInput}
+                  value={editItemName}
+                  onChangeText={setEditItemName}
+                  returnKeyType="done"
+                />
+              </View>
               <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
                 <Ionicons name="close" size={28} color="#5D4037" />
               </TouchableOpacity>
@@ -370,6 +405,19 @@ export default function ShoppingListScreen() {
             <ScrollView showsVerticalScrollIndicator={false}>
               {selectedItem && (
                 <>
+                  {/* Editable Price + Save */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                    <Text style={styles.fieldLabel}>Preço (R$):</Text>
+                    <TextInput
+                      style={[styles.modalInput, { flex: 1 }]}
+                      value={editItemPrice}
+                      onChangeText={setEditItemPrice}
+                      keyboardType="decimal-pad"
+                    />
+                    <TouchableOpacity style={styles.saveDueDateBtn} onPress={handleSaveItemDetails}>
+                      <Ionicons name="save" size={20} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
                   {/* Payment Summary */}
                   <View style={styles.paySummaryCard}>
                     <Text style={styles.paySummaryTitle}>Resumo Financeiro</Text>
@@ -511,18 +559,18 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     flex: 1,
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: isSmall ? 12 : 16,
+    padding: isSmall ? 10 : 14,
     alignItems: 'center',
-    gap: 4,
+    gap: isSmall ? 2 : 4,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
   },
-  summaryValue: { fontSize: 17, fontWeight: '800', color: '#3E2723' },
-  summaryLabel: { fontSize: 13, color: '#5D4037', fontWeight: '600' },
+  summaryValue: { fontSize: isSmall ? 14 : 17, fontWeight: '800', color: '#3E2723' },
+  summaryLabel: { fontSize: isSmall ? 11 : 13, color: '#5D4037', fontWeight: '600' },
 
   categoryRow: {
     flexDirection: 'row',
@@ -550,7 +598,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#6A1B9A',
     borderColor: '#6A1B9A',
   },
-  categoryBtnText: { fontSize: 16, fontWeight: '700', color: '#5D4037' },
+  categoryBtnText: { fontSize: isSmall ? 14 : 16, fontWeight: '700', color: '#5D4037' },
   categoryBtnTextActive: { color: '#FFF' },
 
   inputSection: {
@@ -564,22 +612,22 @@ const styles = StyleSheet.create({
   },
   input: {
     backgroundColor: '#FFF',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 17,
+    borderRadius: isSmall ? 12 : 14,
+    paddingHorizontal: isSmall ? 12 : 16,
+    paddingVertical: isSmall ? 10 : 14,
+    fontSize: isSmall ? 14 : 17,
     borderWidth: 1.5,
     borderColor: '#D7CCC8',
     color: '#3E2723',
   },
   addButton: {
     backgroundColor: '#5D4037',
-    borderRadius: 14,
+    borderRadius: isSmall ? 12 : 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    gap: 8,
+    paddingVertical: isSmall ? 10 : 14,
+    gap: isSmall ? 6 : 8,
     elevation: 3,
     shadowColor: '#5D4037',
     shadowOffset: { width: 0, height: 2 },
@@ -588,16 +636,16 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     color: '#FFF',
-    fontSize: 17,
+    fontSize: isSmall ? 14 : 17,
     fontWeight: '700',
   },
 
   list: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 30 },
   itemCard: {
     backgroundColor: '#FFF',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 8,
+    borderRadius: isSmall ? 12 : 14,
+    padding: isSmall ? 10 : 14,
+    marginBottom: isSmall ? 6 : 8,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
@@ -609,19 +657,19 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   itemIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: isSmall ? 36 : 44,
+    height: isSmall ? 36 : 44,
+    borderRadius: isSmall ? 10 : 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   itemInfo: { flex: 1 },
-  itemName: { fontSize: 17, fontWeight: '700', color: '#3E2723' },
-  itemCategory: { fontSize: 14, color: '#8D6E63', marginTop: 2 },
-  itemPaidLabel: { fontSize: 13, color: '#1565C0', marginTop: 3, fontWeight: '600' },
+  itemName: { fontSize: isSmall ? 14 : 17, fontWeight: '700', color: '#3E2723' },
+  itemCategory: { fontSize: isSmall ? 12 : 14, color: '#8D6E63', marginTop: 2 },
+  itemPaidLabel: { fontSize: isSmall ? 11 : 13, color: '#1565C0', marginTop: 3, fontWeight: '600' },
   itemRightCol: { alignItems: 'flex-end', gap: 4 },
-  itemPrice: { fontSize: 17, fontWeight: '800', color: '#3E2723' },
+  itemPrice: { fontSize: isSmall ? 14 : 17, fontWeight: '800', color: '#3E2723' },
   deleteBtn: { padding: 6 },
 
   emptyContainer: { alignItems: 'center', paddingTop: 60 },
@@ -648,11 +696,21 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 22,
+    fontSize: isSmall ? 18 : 22,
     fontWeight: '800',
     color: '#3E2723',
     flex: 1,
     marginRight: 12,
+  },
+  modalTitleInput: {
+    fontSize: isSmall ? 18 : 22,
+    fontWeight: '800',
+    color: '#3E2723',
+    flex: 1,
+    borderBottomWidth: 1.5,
+    borderBottomColor: '#D7CCC8',
+    paddingVertical: 4,
+    paddingHorizontal: 0,
   },
   modalSubtitle: {
     fontSize: 16,

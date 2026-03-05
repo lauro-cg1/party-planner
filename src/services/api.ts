@@ -38,7 +38,7 @@ export async function addGuest(name: string, family: string, isChild: boolean = 
   }
 }
 
-export async function updateGuest(id: string, updates: { status?: GuestStatus; observations?: string; family?: string; isChild?: boolean }): Promise<boolean> {
+export async function updateGuest(id: string, updates: { name?: string; status?: GuestStatus; observations?: string; family?: string; isChild?: boolean }): Promise<boolean> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/guests/${id}`, {
       method: 'PUT',
@@ -144,7 +144,7 @@ export async function deleteShoppingItem(id: string): Promise<boolean> {
   }
 }
 
-export async function updateShoppingItem(id: string, updates: { dueDate?: string | null }): Promise<boolean> {
+export async function updateShoppingItem(id: string, updates: { dueDate?: string | null; name?: string; price?: number }): Promise<boolean> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/shopping/${id}`, {
       method: 'PUT',

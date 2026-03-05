@@ -94,10 +94,17 @@ async function handleAddGuest(db: D1Database, request: Request): Promise<Respons
 }
 
 async function handleUpdateGuest(db: D1Database, id: string, request: Request): Promise<Response> {
-  const body = await request.json() as { status?: string; observations?: string; family?: string; isChild?: boolean };
+  const body = await request.json() as { name?: string; status?: string; observations?: string; family?: string; isChild?: boolean };
 
   const updates: string[] = [];
   const values: any[] = [];
+
+  if (body.name !== undefined) {
+    const trimmed = body.name.trim();
+    if (!trimmed) return errorResponse('Nome não pode ser vazio');
+    updates.push('name = ?');
+    values.push(trimmed);
+  }
 
   if (body.status !== undefined) {
     const validStatuses = ['pendente', 'confirmado', 'nao_vem', 'pago_parcial', 'pago_total'];
@@ -240,9 +247,22 @@ async function handleDeleteShopping(db: D1Database, id: string): Promise<Respons
 }
 
 async function handleUpdateShopping(db: D1Database, id: string, request: Request): Promise<Response> {
-  const body = await request.json() as { dueDate?: string | null };
+  const body = await request.json() as { dueDate?: string | null; name?: string; price?: number };
   const updates: string[] = [];
   const values: any[] = [];
+
+  if (body.name !== undefined) {
+    const trimmed = body.name.trim();
+    if (!trimmed) return errorResponse('Nome não pode ser vazio');
+    updates.push('name = ?');
+    values.push(trimmed);
+  }
+
+  if (body.price !== undefined) {
+    if (typeof body.price !== 'number' || body.price <= 0) return errorResponse('Preço inválido');
+    updates.push('price = ?');
+    values.push(body.price);
+  }
 
   if (body.dueDate !== undefined) {
     updates.push('due_date = ?');

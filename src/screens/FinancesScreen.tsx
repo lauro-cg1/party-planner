@@ -9,6 +9,7 @@ import {
   FlatList,
   StyleSheet,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -18,6 +19,9 @@ import { fetchGuests, fetchShoppingItems } from '../services/api';
 const PRICE_PER_GUEST = 150;
 const PRICE_PER_CHILD = 75;
 const REFRESH_INTERVAL = 20000;
+
+const { width: screenWidth } = Dimensions.get('window');
+const isSmall = screenWidth <= 414;
 
 function getGuestPrice(guest: Guest): number {
   return guest.isChild ? PRICE_PER_CHILD : PRICE_PER_GUEST;
@@ -237,10 +241,10 @@ const styles = StyleSheet.create({
   },
   bigCard: {
     flex: 1,
-    borderRadius: 18,
-    padding: 18,
+    borderRadius: isSmall ? 14 : 18,
+    padding: isSmall ? 12 : 18,
     alignItems: 'center',
-    gap: 6,
+    gap: isSmall ? 4 : 6,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -250,18 +254,18 @@ const styles = StyleSheet.create({
   bigCardIcon: {
     marginBottom: 4,
   },
-  bigCardLabel: { fontSize: 14, color: '#5D4037', fontWeight: '600' },
-  bigCardValue: { fontSize: 24, fontWeight: '800' },
-  bigCardSubLabel: { fontSize: 13, color: '#8D6E63', marginTop: 2 },
+  bigCardLabel: { fontSize: isSmall ? 12 : 14, color: '#5D4037', fontWeight: '600' },
+  bigCardValue: { fontSize: isSmall ? 19 : 24, fontWeight: '800' },
+  bigCardSubLabel: { fontSize: isSmall ? 11 : 13, color: '#8D6E63', marginTop: 2 },
 
   balanceCard: {
     flexDirection: 'row',
     alignItems: 'center',
     marginHorizontal: 12,
     marginTop: 12,
-    borderRadius: 18,
-    padding: 18,
-    gap: 14,
+    borderRadius: isSmall ? 14 : 18,
+    padding: isSmall ? 14 : 18,
+    gap: isSmall ? 10 : 14,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -275,8 +279,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  balanceLabel: { fontSize: 15, color: '#5D4037', fontWeight: '600' },
-  balanceValue: { fontSize: 28, fontWeight: '800' },
+  balanceLabel: { fontSize: isSmall ? 13 : 15, color: '#5D4037', fontWeight: '600' },
+  balanceValue: { fontSize: isSmall ? 22 : 28, fontWeight: '800' },
 
   sectionHeader: {
     flexDirection: 'row',
@@ -285,13 +289,13 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 10,
   },
-  sectionTitle: { fontSize: 18, fontWeight: '800' },
+  sectionTitle: { fontSize: isSmall ? 15 : 18, fontWeight: '800' },
 
   entryCard: {
     backgroundColor: '#FFF',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 8,
+    borderRadius: isSmall ? 12 : 14,
+    padding: isSmall ? 10 : 14,
+    marginBottom: isSmall ? 6 : 8,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
@@ -303,17 +307,17 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   entryIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
+    width: isSmall ? 36 : 42,
+    height: isSmall ? 36 : 42,
+    borderRadius: isSmall ? 10 : 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   entryInfo: { flex: 1 },
-  entryName: { fontSize: 17, fontWeight: '700', color: '#3E2723' },
-  entryCategory: { fontSize: 14, color: '#8D6E63', marginTop: 2 },
-  entryAmount: { fontSize: 17, fontWeight: '800' },
+  entryName: { fontSize: isSmall ? 14 : 17, fontWeight: '700', color: '#3E2723' },
+  entryCategory: { fontSize: isSmall ? 12 : 14, color: '#8D6E63', marginTop: 2 },
+  entryAmount: { fontSize: isSmall ? 14 : 17, fontWeight: '800' },
 
   emptyRow: {
     flexDirection: 'row',
