@@ -1,0 +1,32 @@
+diff --git a/node_modules/expo-video/ios/Records/Tracks.swift b/node_modules/expo-video/ios/Records/Tracks.swift
+index 8488fc2..da8395a 100644
+--- a/node_modules/expo-video/ios/Records/Tracks.swift
++++ b/node_modules/expo-video/ios/Records/Tracks.swift
+@@ -116,17 +116,24 @@ internal struct VideoTrack: Record, Equatable {
+       return nil
+     }
+ 
+-    let trackUrl = assetVariant.url
+-    let id = extractHlsTrackId(trackUrl: trackUrl, mainUrl: mainUrl)
+     let videoSize = videoAttributes.videoSize
+     let mimeType = videoAttributes.getFormattedCodecString()
+     let frameRate = videoAttributes.nominalFrameRate.map(Float.init)
+     let peakBitrate = assetVariant.peakBitRate.map(Int.init)
+     let averageBitrate = assetVariant.averageBitRate.map(Int.init)
++    // `AVAssetVariant.url` is not available in some Apple SDKs used by Xcode 16.2,
++    // so build a deterministic synthetic id from variant metadata instead.
++    let id = [
++      "w\(videoSize.width)",
++      "h\(videoSize.height)",
++      peakBitrate.map { "p\($0)" } ?? "p0",
++      averageBitrate.map { "a\($0)" } ?? "a0",
++      frameRate.map { "f\($0)" } ?? "f0"
++    ].joined(separator: "-")
+ 
+     return VideoTrack(
+       id: id,
+-      url: trackUrl,
++      url: nil,
+       size: videoSize,
+       mimeType: mimeType,
+       bitrate: peakBitrate ?? averageBitrate,
