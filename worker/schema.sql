@@ -35,5 +35,16 @@ CREATE TABLE IF NOT EXISTS shopping_items (
   name TEXT NOT NULL,
   price REAL NOT NULL DEFAULT 0,
   category TEXT NOT NULL DEFAULT 'compra' CHECK(category IN ('compra', 'contratacao')),
+  due_date TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Tabela de Pagamentos de Compras/Contratações
+CREATE TABLE IF NOT EXISTS shopping_payments (
+  id TEXT PRIMARY KEY,
+  item_id TEXT NOT NULL,
+  amount REAL NOT NULL,
+  payment_date TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (item_id) REFERENCES shopping_items(id) ON DELETE CASCADE
 );

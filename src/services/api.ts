@@ -2,7 +2,7 @@
 // SERVIÇO DE API - CLOUDFLARE WORKERS
 // ==========================================
 
-import { Guest, GuestStatus, GuestPayment, ShoppingItem } from '../types';
+import { Guest, GuestStatus, GuestPayment, ShoppingItem, ShoppingPayment } from '../types';
 
 const API_BASE_URL = 'https://party-planner-api.laurocg2.workers.dev';
 
@@ -140,6 +140,48 @@ export async function deleteShoppingItem(id: string): Promise<boolean> {
     return response.ok;
   } catch (error) {
     console.error('deleteShoppingItem error:', error);
+    return false;
+  }
+}
+
+export async function updateShoppingItem(id: string, updates: { dueDate?: string | null }): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/shopping/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    return response.ok;
+  } catch (error) {
+    console.error('updateShoppingItem error:', error);
+    return false;
+  }
+}
+
+export async function addShoppingPayment(itemId: string, amount: number, paymentDate: string): Promise<ShoppingPayment | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/shopping/${itemId}/payments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount, paymentDate }),
+    });
+    if (!response.ok) throw new Error('Erro ao adicionar pagamento');
+    const data = await response.json();
+    return data.payment;
+  } catch (error) {
+    console.error('addShoppingPayment error:', error);
+    return null;
+  }
+}
+
+export async function deleteShoppingPayment(paymentId: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/shopping-payments/${paymentId}`, {
+      method: 'DELETE',
+    });
+    return response.ok;
+  } catch (error) {
+    console.error('deleteShoppingPayment error:', error);
     return false;
   }
 }

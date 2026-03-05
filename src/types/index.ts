@@ -24,11 +24,22 @@ export interface Guest {
   createdAt: string;
 }
 
+export interface ShoppingPayment {
+  id: string;
+  itemId: string;
+  amount: number;
+  paymentDate: string;
+  createdAt: string;
+}
+
 export interface ShoppingItem {
   id: string;
   name: string;
   price: number;
   category: 'compra' | 'contratacao';
+  dueDate: string | null;
+  totalPaid: number;
+  payments: ShoppingPayment[];
   createdAt: string;
 }
 

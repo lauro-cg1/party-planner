@@ -170,16 +170,35 @@ async function handleGetGuestPayments(db: D1Database, guestId: string): Promise<
 
 async function handleGetShopping(db: D1Database): Promise<Response> {
   const result = await db
-    .prepare('SELECT id, name, price, category, created_at as createdAt FROM shopping_items ORDER BY created_at ASC')
+    .prepare('SELECT id, name, price, category, due_date as dueDate, created_at as createdAt FROM shopping_items ORDER BY created_at ASC')
     .all();
-  return jsonResponse({ items: result.results });
+
+  const payments = await db
+    .prepare('SELECT id, item_id as itemId, amount, payment_date as paymentDate, created_at as createdAt FROM shopping_payments ORDER BY payment_date ASC')
+    .all();
+
+  const paymentsByItem: Record<string, any[]> = {};
+  for (const p of (payments.results || [])) {
+    const iid = (p as any).itemId;
+    if (!paymentsByItem[iid]) paymentsByItem[iid] = [];
+    paymentsByItem[iid].push(p);
+  }
+
+  const enrichedItems = (result.results || []).map((item: any) => {
+    const itemPayments = paymentsByItem[item.id] || [];
+    const totalPaid = itemPayments.reduce((sum: number, p: any) => sum + p.amount, 0);
+    return { ...item, payments: itemPayments, totalPaid };
+  });
+
+  return jsonResponse({ items: enrichedItems });
 }
 
 async function handleAddShopping(db: D1Database, request: Request): Promise<Response> {
-  const body = await request.json() as { name?: string; price?: number; category?: string };
+  const body = await request.json() as { name?: string; price?: number; category?: string; dueDate?: string };
   const name = body.name?.trim();
   const price = body.price;
   const category = body.category;
+  const dueDate = body.dueDate?.trim() || null;
 
   if (!name) return errorResponse('Nome é obrigatório');
   if (typeof price !== 'number' || price <= 0) return errorResponse('Preço inválido');
@@ -191,17 +210,65 @@ async function handleAddShopping(db: D1Database, request: Request): Promise<Resp
   const now = new Date().toISOString();
 
   await db
-    .prepare('INSERT INTO shopping_items (id, name, price, category, created_at) VALUES (?, ?, ?, ?, ?)')
-    .bind(id, name, price, category, now)
+    .prepare('INSERT INTO shopping_items (id, name, price, category, due_date, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .bind(id, name, price, category, dueDate, now)
     .run();
 
   return jsonResponse({
-    item: { id, name, price, category, createdAt: now },
+    item: { id, name, price, category, dueDate, totalPaid: 0, payments: [], createdAt: now },
   }, 201);
 }
 
 async function handleDeleteShopping(db: D1Database, id: string): Promise<Response> {
+  await db.prepare('DELETE FROM shopping_payments WHERE item_id = ?').bind(id).run();
   await db.prepare('DELETE FROM shopping_items WHERE id = ?').bind(id).run();
+  return jsonResponse({ success: true });
+}
+
+async function handleUpdateShopping(db: D1Database, id: string, request: Request): Promise<Response> {
+  const body = await request.json() as { dueDate?: string | null };
+  const updates: string[] = [];
+  const values: any[] = [];
+
+  if (body.dueDate !== undefined) {
+    updates.push('due_date = ?');
+    values.push(body.dueDate?.trim() || null);
+  }
+
+  if (updates.length === 0) return errorResponse('Nenhum campo para atualizar');
+
+  values.push(id);
+  await db
+    .prepare(`UPDATE shopping_items SET ${updates.join(', ')} WHERE id = ?`)
+    .bind(...values)
+    .run();
+
+  return jsonResponse({ success: true });
+}
+
+async function handleAddShoppingPayment(db: D1Database, itemId: string, request: Request): Promise<Response> {
+  const body = await request.json() as { amount?: number; paymentDate?: string };
+  const amount = body.amount;
+  const paymentDate = body.paymentDate?.trim();
+
+  if (typeof amount !== 'number' || amount <= 0) return errorResponse('Valor inválido');
+  if (!paymentDate) return errorResponse('Data é obrigatória');
+
+  const id = generateId();
+  const now = new Date().toISOString();
+
+  await db
+    .prepare('INSERT INTO shopping_payments (id, item_id, amount, payment_date, created_at) VALUES (?, ?, ?, ?, ?)')
+    .bind(id, itemId, amount, paymentDate, now)
+    .run();
+
+  return jsonResponse({
+    payment: { id, itemId, amount, paymentDate, createdAt: now },
+  }, 201);
+}
+
+async function handleDeleteShoppingPayment(db: D1Database, paymentId: string): Promise<Response> {
+  await db.prepare('DELETE FROM shopping_payments WHERE id = ?').bind(paymentId).run();
   return jsonResponse({ success: true });
 }
 
@@ -258,7 +325,20 @@ export default {
       const shoppingMatch = path.match(/^\/api\/shopping\/([^/]+)$/);
       if (shoppingMatch) {
         const id = shoppingMatch[1];
+        if (method === 'PUT') return handleUpdateShopping(env.DB, id, request);
         if (method === 'DELETE') return handleDeleteShopping(env.DB, id);
+      }
+
+      // --- PAGAMENTOS DE COMPRAS ---
+      const shoppingPaymentMatch = path.match(/^\/api\/shopping\/([^/]+)\/payments$/);
+      if (shoppingPaymentMatch) {
+        const itemId = shoppingPaymentMatch[1];
+        if (method === 'POST') return handleAddShoppingPayment(env.DB, itemId, request);
+      }
+
+      const deleteShoppingPaymentMatch = path.match(/^\/api\/shopping-payments\/([^/]+)$/);
+      if (deleteShoppingPaymentMatch && method === 'DELETE') {
+        return handleDeleteShoppingPayment(env.DB, deleteShoppingPaymentMatch[1]);
       }
 
       // --- CONFIG ---

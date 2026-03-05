@@ -17,6 +17,7 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Guest, GuestStatus, GuestPayment } from '../types';
@@ -388,7 +389,7 @@ export default function GuestListScreen() {
             value={newName}
             onChangeText={setNewName}
           />
-          <View style={{ flex: 1, position: 'relative' }}>
+          <View style={{ flex: 1 }}>
             <TouchableOpacity
               style={[styles.input, styles.familyDropdownBtn]}
               onPress={() => setFamilyDropdownOpen(!familyDropdownOpen)}
@@ -399,33 +400,6 @@ export default function GuestListScreen() {
               </Text>
               <Ionicons name={familyDropdownOpen ? 'chevron-up' : 'chevron-down'} size={18} color="#A1887F" />
             </TouchableOpacity>
-            {familyDropdownOpen && (
-              <View style={styles.familyDropdown}>
-                <ScrollView style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
-                  {families.map((f) => (
-                    <TouchableOpacity
-                      key={f}
-                      style={[styles.familyDropdownItem, newFamily === f && styles.familyDropdownItemActive]}
-                      onPress={() => { setNewFamily(f); setFamilyDropdownOpen(false); }}
-                    >
-                      <Text style={[styles.familyDropdownItemText, newFamily === f && { color: '#FFF' }]}>{f}</Text>
-                    </TouchableOpacity>
-                  ))}
-                  <View style={styles.familyDropdownInputRow}>
-                    <TextInput
-                      style={styles.familyDropdownInput}
-                      placeholder="Nova família..."
-                      placeholderTextColor="#A1887F"
-                      value={families.includes(newFamily) ? '' : newFamily}
-                      onChangeText={(t) => setNewFamily(t)}
-                    />
-                    <TouchableOpacity onPress={() => setFamilyDropdownOpen(false)} style={styles.familyDropdownOkBtn}>
-                      <Ionicons name="checkmark" size={20} color="#FFF" />
-                    </TouchableOpacity>
-                  </View>
-                </ScrollView>
-              </View>
-            )}
           </View>
         </View>
         <TouchableOpacity style={styles.childCheckboxRow} onPress={() => setNewIsChild(!newIsChild)} activeOpacity={0.7}>
@@ -699,6 +673,56 @@ export default function GuestListScreen() {
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ============ FAMILY DROPDOWN MODAL ============ */}
+      <Modal
+        visible={familyDropdownOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setFamilyDropdownOpen(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setFamilyDropdownOpen(false)}>
+          <View style={styles.familyModalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.familyModalContent}>
+                <View style={styles.familyModalHeader}>
+                  <Text style={styles.familyModalTitle}>Selecionar Família</Text>
+                  <TouchableOpacity onPress={() => setFamilyDropdownOpen(false)}>
+                    <Ionicons name="close" size={24} color="#5D4037" />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={{ maxHeight: 300 }} keyboardShouldPersistTaps="handled">
+                  {families.length > 0 && families.map((f) => (
+                    <TouchableOpacity
+                      key={f}
+                      style={[styles.familyDropdownItem, newFamily === f && styles.familyDropdownItemActive]}
+                      onPress={() => { setNewFamily(f); setFamilyDropdownOpen(false); }}
+                    >
+                      <Text style={[styles.familyDropdownItemText, newFamily === f && { color: '#FFF' }]}>{f}</Text>
+                    </TouchableOpacity>
+                  ))}
+                  {families.length === 0 && (
+                    <Text style={{ textAlign: 'center', color: '#A1887F', paddingVertical: 16, fontSize: 15 }}>Nenhuma família cadastrada</Text>
+                  )}
+                </ScrollView>
+                <View style={styles.familyDropdownInputRow}>
+                  <TextInput
+                    style={styles.familyDropdownInput}
+                    placeholder="Digitar nova família..."
+                    placeholderTextColor="#A1887F"
+                    value={families.includes(newFamily) ? '' : newFamily}
+                    onChangeText={(t) => setNewFamily(t)}
+                    autoFocus={families.length === 0}
+                  />
+                  <TouchableOpacity onPress={() => setFamilyDropdownOpen(false)} style={styles.familyDropdownOkBtn}>
+                    <Ionicons name="checkmark" size={22} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </View>
   );
@@ -1018,58 +1042,68 @@ const styles = StyleSheet.create({
     color: '#3E2723',
     flex: 1,
   },
-  familyDropdown: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
+  familyModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  familyModalContent: {
     backgroundColor: '#FFF',
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#D7CCC8',
-    marginTop: 4,
-    zIndex: 999,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
+    borderRadius: 20,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: Dimensions.get('window').height * 0.6,
+  },
+  familyModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  familyModalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#3E2723',
   },
   familyDropdownItem: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#F0E8E0',
+    borderRadius: 10,
   },
   familyDropdownItemActive: {
     backgroundColor: '#5D4037',
   },
   familyDropdownItemText: {
-    fontSize: 16,
+    fontSize: 17,
     color: '#3E2723',
     fontWeight: '600',
   },
   familyDropdownInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 8,
-    gap: 6,
+    paddingTop: 12,
+    gap: 8,
   },
   familyDropdownInput: {
     flex: 1,
     backgroundColor: '#FAF3E0',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    borderWidth: 1.5,
     borderColor: '#D7CCC8',
     color: '#3E2723',
   },
   familyDropdownOkBtn: {
     backgroundColor: '#5D4037',
-    borderRadius: 10,
-    padding: 8,
+    borderRadius: 12,
+    padding: 10,
   },
 
   // Detail modal
