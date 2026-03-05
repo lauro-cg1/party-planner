@@ -72,10 +72,19 @@ export default function GuestListScreen() {
   const [paymentIsChild, setPaymentIsChild] = useState(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const versionRef = useRef(0);
 
   const loadGuests = useCallback(async (silent = false) => {
+    const v = versionRef.current;
     const data = await fetchGuests();
+    // Discard stale response if a mutation happened while fetching
+    if (versionRef.current !== v) return;
     setGuests(data);
+    setSelectedGuest((prev) => {
+      if (!prev) return prev;
+      const fresh = data.find((g: Guest) => g.id === prev.id);
+      return fresh || null;
+    });
     if (!silent) setLoading(false);
   }, []);
 
@@ -99,6 +108,7 @@ export default function GuestListScreen() {
       Alert.alert('Atenção', 'Digite o nome do convidado');
       return;
     }
+    versionRef.current++;
     const guest = await addGuest(trimmed, newFamily.trim(), newIsChild);
     if (guest) {
       setGuests((prev) => [...prev, guest]);
@@ -126,6 +136,7 @@ export default function GuestListScreen() {
       setPaymentModalVisible(true);
       return;
     }
+    versionRef.current++;
     const success = await updateGuest(guest.id, { status });
     if (success) {
       setGuests((prev) =>
@@ -148,6 +159,8 @@ export default function GuestListScreen() {
     }
     const parts = paymentDate.trim().split('/');
     const isoDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+
+    versionRef.current++;
 
     // Update isChild if changed in payment modal
     if (!!selectedGuest.isChild !== paymentIsChild) {
@@ -187,6 +200,7 @@ export default function GuestListScreen() {
         text: 'Remover',
         style: 'destructive',
         onPress: async () => {
+          versionRef.current++;
           const success = await deleteGuest(id);
           if (success) {
             setGuests((prev) => prev.filter((g) => g.id !== id));
@@ -208,6 +222,7 @@ export default function GuestListScreen() {
 
   const handleSaveObservations = async () => {
     if (!selectedGuest) return;
+    versionRef.current++;
     const success = await updateGuest(selectedGuest.id, { observations: obsText });
     if (success) {
       setGuests((prev) =>
@@ -220,6 +235,7 @@ export default function GuestListScreen() {
 
   const handleDeletePayment = async (paymentId: string) => {
     if (!selectedGuest) return;
+    versionRef.current++;
     const success = await deletePayment(paymentId);
     if (success) {
       const updatedPayments = (selectedGuest.payments || []).filter((p) => p.id !== paymentId);

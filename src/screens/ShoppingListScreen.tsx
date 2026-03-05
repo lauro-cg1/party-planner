@@ -49,6 +49,7 @@ export default function ShoppingListScreen() {
   const [category, setCategory] = useState<'compra' | 'contratacao'>('compra');
   const [loading, setLoading] = useState(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const versionRef = useRef(0);
 
   // Detail modal
   const [selectedItem, setSelectedItem] = useState<ShoppingItem | null>(null);
@@ -61,8 +62,15 @@ export default function ShoppingListScreen() {
   const [payDate, setPayDate] = useState('');
 
   const loadItems = useCallback(async (silent = false) => {
+    const v = versionRef.current;
     const data = await fetchShoppingItems();
+    if (versionRef.current !== v) return;
     setItems(data);
+    setSelectedItem((prev) => {
+      if (!prev) return prev;
+      const fresh = data.find((i: ShoppingItem) => i.id === prev.id);
+      return fresh || null;
+    });
     if (!silent) setLoading(false);
   }, []);
 
@@ -90,6 +98,7 @@ export default function ShoppingListScreen() {
       Alert.alert('Atenção', 'Digite um preço válido (ex: 3,75)');
       return;
     }
+    versionRef.current++;
     const item = await addShoppingItem(trimmed, price, category);
     if (item) {
       setItems((prev) => [...prev, item]);
@@ -107,6 +116,7 @@ export default function ShoppingListScreen() {
         text: 'Remover',
         style: 'destructive',
         onPress: async () => {
+          versionRef.current++;
           const success = await deleteShoppingItem(id);
           if (success) {
             setItems((prev) => prev.filter((i) => i.id !== id));
@@ -138,6 +148,7 @@ export default function ShoppingListScreen() {
       const parts = dueDateText.trim().split('/');
       isoDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
     }
+    versionRef.current++;
     const success = await updateShoppingItem(selectedItem.id, { dueDate: isoDate });
     if (success) {
       const updated = { ...selectedItem, dueDate: isoDate };
@@ -162,6 +173,7 @@ export default function ShoppingListScreen() {
     const parts = payDate.trim().split('/');
     const isoDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
 
+    versionRef.current++;
     const payment = await addShoppingPayment(selectedItem.id, amount, isoDate);
     if (!payment) {
       Alert.alert('Erro', 'Não foi possível registrar o pagamento');
@@ -183,6 +195,7 @@ export default function ShoppingListScreen() {
 
   const handleDeletePayment = async (paymentId: string) => {
     if (!selectedItem) return;
+    versionRef.current++;
     const success = await deleteShoppingPayment(paymentId);
     if (success) {
       const updatedPayments = (selectedItem.payments || []).filter((p) => p.id !== paymentId);
