@@ -604,15 +604,19 @@ export default function GuestListScreen() {
         onRequestClose={() => setDetailModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: Dimensions.get('window').height * 0.85 }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Detalhes do Convidado</Text>
-              <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
-                <Ionicons name="close" size={28} color="#5D4037" />
-              </TouchableOpacity>
-            </View>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ width: '100%' }}
+          >
+            <View style={[styles.modalContent, { maxHeight: Dimensions.get('window').height * 0.85 }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Detalhes do Convidado</Text>
+                <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
+                  <Ionicons name="close" size={28} color="#5D4037" />
+                </TouchableOpacity>
+              </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               {selectedGuest && (
                 <>
                   {/* Editable Name */}
@@ -726,8 +730,9 @@ export default function GuestListScreen() {
                   </TouchableOpacity>
                 </>
               )}
-            </ScrollView>
-          </View>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
