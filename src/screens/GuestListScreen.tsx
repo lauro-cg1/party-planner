@@ -72,13 +72,15 @@ export default function GuestListScreen() {
   const [paymentIsChild, setPaymentIsChild] = useState(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const versionRef = useRef(0);
+  const lastMutationRef = useRef(0);
+  const MUTATION_COOLDOWN = 10000;
+
+  const markMutation = () => { lastMutationRef.current = Date.now(); };
 
   const loadGuests = useCallback(async (silent = false) => {
-    const v = versionRef.current;
     const data = await fetchGuests();
-    // Discard stale response if a mutation happened while fetching
-    if (versionRef.current !== v) return;
+    // Discard stale response if a mutation happened recently (D1 replication lag)
+    if (silent && Date.now() - lastMutationRef.current < MUTATION_COOLDOWN) return;
     setGuests(data);
     setSelectedGuest((prev) => {
       if (!prev) return prev;
@@ -108,7 +110,7 @@ export default function GuestListScreen() {
       Alert.alert('Atenção', 'Digite o nome do convidado');
       return;
     }
-    versionRef.current++;
+    markMutation();
     const guest = await addGuest(trimmed, newFamily.trim(), newIsChild);
     if (guest) {
       setGuests((prev) => [...prev, guest]);
@@ -118,7 +120,7 @@ export default function GuestListScreen() {
     } else {
       Alert.alert('Erro', 'Não foi possível adicionar o convidado');
     }
-    versionRef.current++;
+    markMutation();
   };
 
   const handleStatusChange = async (guest: Guest, status: GuestStatus) => {
@@ -137,14 +139,14 @@ export default function GuestListScreen() {
       setPaymentModalVisible(true);
       return;
     }
-    versionRef.current++;
+    markMutation();
     const success = await updateGuest(guest.id, { status });
     if (success) {
       setGuests((prev) =>
         prev.map((g) => (g.id === guest.id ? { ...g, status } : g))
       );
     }
-    versionRef.current++;
+    markMutation();
   };
 
   const handlePaymentSubmit = async () => {
@@ -162,7 +164,7 @@ export default function GuestListScreen() {
     const parts = paymentDate.trim().split('/');
     const isoDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
 
-    versionRef.current++;
+    markMutation();
 
     // Update isChild if changed in payment modal
     if (!!selectedGuest.isChild !== paymentIsChild) {
@@ -192,7 +194,7 @@ export default function GuestListScreen() {
         };
       })
     );
-    versionRef.current++;
+    markMutation();
     setPaymentModalVisible(false);
   };
 
@@ -203,7 +205,7 @@ export default function GuestListScreen() {
         text: 'Remover',
         style: 'destructive',
         onPress: async () => {
-          versionRef.current++;
+          markMutation();
           const success = await deleteGuest(id);
           if (success) {
             setGuests((prev) => prev.filter((g) => g.id !== id));
@@ -212,7 +214,7 @@ export default function GuestListScreen() {
               setSelectedGuest(null);
             }
           }
-          versionRef.current++;
+          markMutation();
         },
       },
     ]);
@@ -226,7 +228,7 @@ export default function GuestListScreen() {
 
   const handleSaveObservations = async () => {
     if (!selectedGuest) return;
-    versionRef.current++;
+    markMutation();
     const success = await updateGuest(selectedGuest.id, { observations: obsText });
     if (success) {
       setGuests((prev) =>
@@ -235,12 +237,12 @@ export default function GuestListScreen() {
       setSelectedGuest((prev) => prev ? { ...prev, observations: obsText } : prev);
       Alert.alert('Sucesso', 'Observações salvas!');
     }
-    versionRef.current++;
+    markMutation();
   };
 
   const handleDeletePayment = async (paymentId: string) => {
     if (!selectedGuest) return;
-    versionRef.current++;
+    markMutation();
     const success = await deletePayment(paymentId);
     if (success) {
       const updatedPayments = (selectedGuest.payments || []).filter((p) => p.id !== paymentId);
@@ -263,7 +265,7 @@ export default function GuestListScreen() {
       setGuests((prev) =>
         prev.map((g) => (g.id === selectedGuest.id ? updatedGuest : g))
       );
-      versionRef.current++;
+      markMutation();
     }
   };
 

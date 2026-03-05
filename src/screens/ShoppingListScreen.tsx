@@ -49,7 +49,10 @@ export default function ShoppingListScreen() {
   const [category, setCategory] = useState<'compra' | 'contratacao'>('compra');
   const [loading, setLoading] = useState(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const versionRef = useRef(0);
+  const lastMutationRef = useRef(0);
+  const MUTATION_COOLDOWN = 10000;
+
+  const markMutation = () => { lastMutationRef.current = Date.now(); };
 
   // Detail modal
   const [selectedItem, setSelectedItem] = useState<ShoppingItem | null>(null);
@@ -62,9 +65,8 @@ export default function ShoppingListScreen() {
   const [payDate, setPayDate] = useState('');
 
   const loadItems = useCallback(async (silent = false) => {
-    const v = versionRef.current;
     const data = await fetchShoppingItems();
-    if (versionRef.current !== v) return;
+    if (silent && Date.now() - lastMutationRef.current < MUTATION_COOLDOWN) return;
     setItems(data);
     setSelectedItem((prev) => {
       if (!prev) return prev;
@@ -98,7 +100,7 @@ export default function ShoppingListScreen() {
       Alert.alert('Atenção', 'Digite um preço válido (ex: 3,75)');
       return;
     }
-    versionRef.current++;
+    markMutation();
     const item = await addShoppingItem(trimmed, price, category);
     if (item) {
       setItems((prev) => [...prev, item]);
@@ -106,7 +108,7 @@ export default function ShoppingListScreen() {
       setNewPrice('');
     } else {
       Alert.alert('Erro', 'Não foi possível adicionar o item');
-    }    versionRef.current++;  };
+    }    markMutation();  };
 
   const handleDelete = (id: string, name: string) => {
     Alert.alert('Remover Item', `Deseja remover "${name}"?`, [
@@ -115,7 +117,7 @@ export default function ShoppingListScreen() {
         text: 'Remover',
         style: 'destructive',
         onPress: async () => {
-          versionRef.current++;
+          markMutation();
           const success = await deleteShoppingItem(id);
           if (success) {
             setItems((prev) => prev.filter((i) => i.id !== id));
@@ -124,7 +126,7 @@ export default function ShoppingListScreen() {
               setSelectedItem(null);
             }
           }
-          versionRef.current++;
+          markMutation();
         },
       },
     ]);
@@ -149,7 +151,7 @@ export default function ShoppingListScreen() {
       const parts = dueDateText.trim().split('/');
       isoDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
     }
-    versionRef.current++;
+    markMutation();
     const success = await updateShoppingItem(selectedItem.id, { dueDate: isoDate });
     if (success) {
       const updated = { ...selectedItem, dueDate: isoDate };
@@ -157,7 +159,7 @@ export default function ShoppingListScreen() {
       setItems((prev) => prev.map((i) => (i.id === selectedItem.id ? updated : i)));
       Alert.alert('Sucesso', 'Data limite salva!');
     }
-    versionRef.current++;
+    markMutation();
   };
 
   const handlePaymentSubmit = async () => {
@@ -175,7 +177,7 @@ export default function ShoppingListScreen() {
     const parts = payDate.trim().split('/');
     const isoDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
 
-    versionRef.current++;
+    markMutation();
     const payment = await addShoppingPayment(selectedItem.id, amount, isoDate);
     if (!payment) {
       Alert.alert('Erro', 'Não foi possível registrar o pagamento');
@@ -193,12 +195,12 @@ export default function ShoppingListScreen() {
     setShowPaymentForm(false);
     setPayAmount('');
     setPayDate('');
-    versionRef.current++;
+    markMutation();
   };
 
   const handleDeletePayment = async (paymentId: string) => {
     if (!selectedItem) return;
-    versionRef.current++;
+    markMutation();
     const success = await deleteShoppingPayment(paymentId);
     if (success) {
       const updatedPayments = (selectedItem.payments || []).filter((p) => p.id !== paymentId);
@@ -206,7 +208,7 @@ export default function ShoppingListScreen() {
       const updatedItem = { ...selectedItem, payments: updatedPayments, totalPaid: newTotalPaid };
       setSelectedItem(updatedItem);
       setItems((prev) => prev.map((i) => (i.id === selectedItem.id ? updatedItem : i)));
-      versionRef.current++;
+      markMutation();
     }
   };
 
